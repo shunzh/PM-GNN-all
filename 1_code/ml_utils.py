@@ -263,12 +263,20 @@ def test(test_loader, model, n_epoch, batch_size, num_node, model_index, flag,de
 
 
 
-def compute_reward(eff, vout, target_vout = .5):
+def compute_smooth_reward(eff, vout, target_vout = .5):
     a = abs(target_vout) / 15
 
     eff[np.logical_or(eff > 1, eff < 0)] = 0.
 
     return eff * (1.1 ** (-((vout - target_vout) / a) ** 2))
+
+def compute_piecewise_liear_reward(eff, vout):
+    eff[np.logical_or(eff > 1, eff < 0)] = 0.
+    eff[np.logical_or(vout < .35, vout > .65)] = 0.
+
+    return eff
+
+compute_reward = compute_piecewise_liear_reward
 
 def optimize_reward(test_loader, eff_model, vout_model,
                     n_epoch, batch_size, num_node, model_index, flag,device, th):
@@ -316,11 +324,14 @@ def optimize_reward(test_loader, eff_model, vout_model,
         analytic_list.extend(compute_reward(analytic_eff, analytic_vout))
         out_list.extend(compute_reward(eff, vout))
 
+        # sim opt
         sim_opts.append(np.max(sim_list))
 
+        # analytic
         analytic_opt = np.argmax(analytic_list)
         analytic_performs.append(sim_list[analytic_opt])
 
+        # gnn
         gnn_opt = np.argmax(out_list)
         gnn_performs.append(sim_list[gnn_opt])
 
@@ -329,7 +340,7 @@ def optimize_reward(test_loader, eff_model, vout_model,
     print("GNN RSE:", rse(np.array(out_list), np.array(sim_list)))
     print("Analytic RSE:", rse(np.array(analytic_list), np.array(sim_list)))
 
-    print(sim_opts)
-    print(analytic_performs)
-    print(gnn_performs)
+    print('sim', sim_opts)
+    print('analytic', analytic_performs)
+    print('gnn', gnn_performs)
 

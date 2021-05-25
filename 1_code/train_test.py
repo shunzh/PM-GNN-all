@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('-path', type=str, default="../0_rawdata", help='raw data path')
     parser.add_argument('-y_select', type=str, default='reg_eff',help='define target label')
     parser.add_argument('-batch_size', type=int, default=32, help='batch size')
-    parser.add_argument('-n_epoch', type=int, default=1, help='number of training epoch')
+    parser.add_argument('-n_epoch', type=int, default=10, help='number of training epoch')
     parser.add_argument('-gnn_nodes', type=int, default=100, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=100, help='number of MLP predictor nodes at output of GNN') 
     parser.add_argument('-gnn_layers', type=int, default=3, help='number of layer')

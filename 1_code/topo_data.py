@@ -30,6 +30,7 @@ from scipy import stats
 from easydict import EasyDict
 import argparse
 
+from ml_utils import compute_reward
 
 import torch_geometric
 
@@ -83,6 +84,7 @@ class Autopo(InMemoryDataset):
 
             target_vout=[]
             target_eff=[]
+            target_rewards = []
 
             analytic_vout=[]
             analytic_eff=[]
@@ -97,14 +99,22 @@ class Autopo(InMemoryDataset):
               analytic_vout.append(0) 
             label_analytic_vout=analytic_vout
 
-            target_eff.append(json_file[item]["eff"])
-            target_vout.append(json_file[item]["vout"] / 100)
+            eff = json_file[item]["eff"]
+            vout = json_file[item]["vout"] / 100
+            r = compute_reward(eff, vout)
+
+            target_eff.append(eff)
+            target_vout.append(vout)
+            target_rewards.append(r)
 
             if y_select=='reg_eff':
                  label=target_eff
 
             elif y_select=='reg_vout':
                  label=target_vout
+
+            elif y_select=='reg_reward':
+                 label = target_rewards
 
             elif y_select=='cls_boost':
                  target_vout.append(float(json_file[item]["vout"]>110))
