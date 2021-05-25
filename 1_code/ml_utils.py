@@ -169,13 +169,14 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
     return model      
 
 
-def test(test_loader, model, n_epoch, batch_size, num_node, model_index, flag,device,optimizer, th):
+def test(test_loader, model, n_epoch, batch_size, num_node, model_index, flag,device, th):
 
         model.eval()        
         accuracy=0
         n_batch_test=0
         gold_list=[]
         out_list=[]
+        analytic_list = []
 
         if flag==1:
             for data in test_loader:
@@ -191,9 +192,8 @@ def test(test_loader, model, n_epoch, batch_size, num_node, model_index, flag,de
  
                  adj=torch.reshape(data.adj,[B,int(L/B),int(L/B)])
                  gold=data.label.cpu().detach().numpy()
-                       
+
                  n_batch_test=n_batch_test+1
-                 optimizer.zero_grad()
                  if model_index==0:
                       out=model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
                  else:
@@ -239,9 +239,8 @@ def test(test_loader, model, n_epoch, batch_size, num_node, model_index, flag,de
  
                  adj=torch.reshape(data.adj,[B,int(L/B),int(L/B)])
                  y=data.label.cpu().detach().numpy()
-                       
+
                  n_batch_test=n_batch_test+1
-                 optimizer.zero_grad()
                  if model_index==0:
                       out=model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
                  else:
@@ -251,6 +250,7 @@ def test(test_loader, model, n_epoch, batch_size, num_node, model_index, flag,de
                  out=np.array([x for x in out])
                  gold=np.array(y.reshape(-1))
                  gold=np.array([x for x in gold])
+
                  gold_list.extend(gold)
                  out_list.extend(out) 
      
@@ -260,6 +260,76 @@ def test(test_loader, model, n_epoch, batch_size, num_node, model_index, flag,de
                  np.set_printoptions(precision=2,suppress=True)
 #
             print("Final RSE:",rse(np.reshape(out_list,-1),np.reshape(gold_list,-1)))
-#
-# ======================================================================================================================
+
+
+
+def compute_reward(eff, vout, target_vout = .5):
+    a = abs(target_vout) / 15
+
+    eff[np.logical_or(eff > 1, eff < 0)] = 0.
+
+    return eff * (1.1 ** (-((vout - target_vout) / a) ** 2))
+
+def optimize_reward(test_loader, eff_model, vout_model,
+                    n_epoch, batch_size, num_node, model_index, flag,device, th):
+    n_batch_test = 0
+
+    sim_list = []
+    analytic_list = []
+    out_list = []
+
+    sim_opts = []
+    analytic_performs = []
+    gnn_performs = []
+
+    for data in test_loader:
+        data.to(device)
+        L = data.node_attr.shape[0]
+        B = int(L / num_node)
+        node_attr = torch.reshape(data.node_attr, [B, int(L / B), -1])
+        if model_index == 0:
+            edge_attr = torch.reshape(data.edge0_attr, [B, int(L / B), int(L / B), -1])
+        else:
+            edge_attr1 = torch.reshape(data.edge1_attr, [B, int(L / B), int(L / B), -1])
+            edge_attr2 = torch.reshape(data.edge2_attr, [B, int(L / B), int(L / B), -1])
+
+        adj = torch.reshape(data.adj, [B, int(L / B), int(L / B)])
+
+        sim_eff = data.sim_eff.cpu().detach().numpy()
+        sim_vout = data.sim_vout.cpu().detach().numpy()
+
+        analytic_eff = data.analytic_eff.cpu().detach().numpy()
+        analytic_vout = data.analytic_vout.cpu().detach().numpy()
+
+        n_batch_test = n_batch_test + 1
+        if model_index == 0:
+            eff = eff_model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
+            vout = vout_model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
+        else:
+            eff = eff_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
+            vout = vout_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
+
+        eff = eff.squeeze(1)
+        vout = vout.squeeze(1)
+
+        sim_list.extend(compute_reward(sim_eff, sim_vout))
+        analytic_list.extend(compute_reward(analytic_eff, analytic_vout))
+        out_list.extend(compute_reward(eff, vout))
+
+        sim_opts.append(np.max(sim_list))
+
+        analytic_opt = np.argmax(analytic_list)
+        analytic_performs.append(sim_list[analytic_opt])
+
+        gnn_opt = np.argmax(out_list)
+        gnn_performs.append(sim_list[gnn_opt])
+
+    np.set_printoptions(precision=2, suppress=True)
+
+    print("GNN RSE:", rse(np.array(out_list), np.array(sim_list)))
+    print("Analytic RSE:", rse(np.array(analytic_list), np.array(sim_list)))
+
+    print(sim_opts)
+    print(analytic_performs)
+    print(gnn_performs)
 

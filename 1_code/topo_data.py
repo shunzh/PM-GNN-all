@@ -78,6 +78,9 @@ class Autopo(InMemoryDataset):
             node_attr = json_file[item]["node_attr"]
             edge_attr0 = json_file[item]["edge_attr0"]
 
+            if abs(json_file[item]["vout"] / 100) > 1:
+                continue
+
             target_vout=[]
             target_eff=[]
 
@@ -92,18 +95,17 @@ class Autopo(InMemoryDataset):
               analytic_vout.append(float(json_file[item]["vout_analytic"])/100)
             except:
               analytic_vout.append(0) 
-            label_analytic_vout=analytic_vout 
- 
+            label_analytic_vout=analytic_vout
+
+            target_eff.append(json_file[item]["eff"])
+            target_vout.append(json_file[item]["vout"] / 100)
 
             if y_select=='reg_eff':
-                 target_eff.append(json_file[item]["eff"])
                  label=target_eff
-                
+
             elif y_select=='reg_vout':
-                 target_vout.append(json_file[item]["vout"]/100)
                  label=target_vout
-                 if abs(json_file[item]["vout"]/100)>1:
-                      continue
+
             elif y_select=='cls_boost':
                  target_vout.append(float(json_file[item]["vout"]>110))
                  label=target_vout
@@ -290,8 +292,11 @@ class Autopo(InMemoryDataset):
             tmp[file_name]['edge2_attr'] = edge_attr2_padded 
             tmp[file_name]['adjacent_matrix']=adjacent_matrix
             tmp[file_name]['label']=label
-            tmp[file_name]['analytic_eff']=label_analytic_eff
-            tmp[file_name]['analytic_vout']=label_analytic_vout
+
+            tmp[file_name]['sim_eff'] = target_eff
+            tmp[file_name]['sim_vout'] = target_vout
+            tmp[file_name]['analytic_eff'] = label_analytic_eff
+            tmp[file_name]['analytic_vout'] = label_analytic_vout
 
 
 
@@ -314,8 +319,12 @@ class Autopo(InMemoryDataset):
             label=torch.tensor(tmp[fn]["label"],dtype=torch.float)
             analytic_eff=torch.tensor(tmp[fn]["analytic_eff"],dtype=torch.float)
             analytic_vout=torch.tensor(tmp[fn]["analytic_vout"],dtype=torch.float)
- 
-            data=Data(node_attr=node_attr,edge0_attr=edge0_attr,edge1_attr=edge1_attr,edge2_attr=edge2_attr,adj=adj,label=label, analytic_eff=analytic_eff, analytic_vout=analytic_vout)
+            sim_eff=torch.tensor(tmp[fn]["sim_eff"],dtype=torch.float)
+            sim_vout=torch.tensor(tmp[fn]["sim_vout"],dtype=torch.float)
+
+            data=Data(node_attr=node_attr,edge0_attr=edge0_attr,edge1_attr=edge1_attr,edge2_attr=edge2_attr,adj=adj,label=label,
+                      analytic_eff=analytic_eff, analytic_vout=analytic_vout,
+                      sim_eff=sim_eff, sim_vout=sim_vout)
             data_list.append(data)
 
         if self.pre_filter is not None:
