@@ -81,9 +81,24 @@ class Autopo(InMemoryDataset):
             target_vout=[]
             target_eff=[]
 
+            analytic_vout=[]
+            analytic_eff=[]
+            try:
+              analytic_eff.append(float(json_file[item]["eff_analytic"]))
+            except:
+              analytic_eff.append(0)
+            label_analytic_eff=analytic_eff
+            try:
+              analytic_vout.append(float(json_file[item]["vout_analytic"])/100)
+            except:
+              analytic_vout.append(0) 
+            label_analytic_vout=analytic_vout 
+ 
+
             if y_select=='reg_eff':
                  target_eff.append(json_file[item]["eff"])
                  label=target_eff
+                
             elif y_select=='reg_vout':
                  target_vout.append(json_file[item]["vout"]/100)
                  label=target_vout
@@ -92,9 +107,11 @@ class Autopo(InMemoryDataset):
             elif y_select=='cls_boost':
                  target_vout.append(float(json_file[item]["vout"]>110))
                  label=target_vout
+ 
             elif y_select=='cls_buck':
                  target_vout.append(float(35<json_file[item]["vout"]<65))
                  label=target_vout
+ 
             else:
                 print("Wrong select input")
                 continue
@@ -240,7 +257,11 @@ class Autopo(InMemoryDataset):
             n=len(node_attr_new)
 
             node_attr_padded[:n,:]=node_attr_new
-            
+           
+            print(edge_index)
+            print(edge_attr_new1)
+            print(len(node_attr_new))
+
             edge_attr0=torch_geometric.utils.to_dense_adj(torch.tensor(edge_index),None,torch.tensor(edge_attr_new0),len(node_attr_new))[0]
 
             edge_attr1=torch_geometric.utils.to_dense_adj(torch.tensor(edge_index),None,torch.tensor(edge_attr_new1),len(node_attr_new))[0]
@@ -269,6 +290,10 @@ class Autopo(InMemoryDataset):
             tmp[file_name]['edge2_attr'] = edge_attr2_padded 
             tmp[file_name]['adjacent_matrix']=adjacent_matrix
             tmp[file_name]['label']=label
+            tmp[file_name]['analytic_eff']=label_analytic_eff
+            tmp[file_name]['analytic_vout']=label_analytic_vout
+
+
 
         return tmp
 
@@ -287,8 +312,10 @@ class Autopo(InMemoryDataset):
             edge2_attr=torch.tensor(tmp[fn]["edge2_attr"],dtype=torch.float)                 
             adj=torch.tensor(tmp[fn]["adjacent_matrix"],dtype=torch.float)            
             label=torch.tensor(tmp[fn]["label"],dtype=torch.float)
+            analytic_eff=torch.tensor(tmp[fn]["analytic_eff"],dtype=torch.float)
+            analytic_vout=torch.tensor(tmp[fn]["analytic_vout"],dtype=torch.float)
  
-            data=Data(node_attr=node_attr,edge0_attr=edge0_attr,edge1_attr=edge1_attr,edge2_attr=edge2_attr,adj=adj,label=label)
+            data=Data(node_attr=node_attr,edge0_attr=edge0_attr,edge1_attr=edge1_attr,edge2_attr=edge2_attr,adj=adj,label=label, analytic_eff=analytic_eff, analytic_vout=analytic_vout)
             data_list.append(data)
 
         if self.pre_filter is not None:
