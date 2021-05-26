@@ -1,7 +1,6 @@
 import os
 
 import torch
-from topo_data import Autopo, split_balance_data
 from ml_utils import train, test, rse, initialize_model, optimize_reward
 import argparse
 
@@ -51,5 +50,12 @@ if __name__ == '__main__':
     vout_model = initialize_model(args.model_index, args.gnn_nodes, args.predictor_nodes, args.gnn_layers, nf_size, ef_size,
                              device)
     vout_model.load_state_dict(vout_model_state_dict)
+
+    """
+    r_model_state_dict, data_loader = torch.load('reg_reward.pt')
+    r_model = initialize_model(args.model_index, args.gnn_nodes, args.predictor_nodes, args.gnn_layers, nf_size, ef_size,
+                               device)
+    r_model.load_state_dict(r_model_state_dict)
+    """
 
     optimize_reward(data_loader, eff_model, vout_model, n_epoch, batch_size, nnode, args.model_index, False,device,th)

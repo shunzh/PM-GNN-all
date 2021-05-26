@@ -1,28 +1,16 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import math
-from torch.utils.data import DataLoader
-from torch_geometric.data import Data, DataLoader
-import torch
-import torch.nn.functional as F
-from torch.nn import Linear, MSELoss
-from torch_geometric.nn import GCNConv, global_mean_pool, NNConv
-import networkx as nx
-import matplotlib.pyplot as plt
-from torch_geometric.utils import to_networkx
-from torch_geometric.datasets import TUDataset
-from torch.utils.data.sampler import SubsetRandomSampler
-from topo_data import Autopo, split_balance_data
+
 import numpy as np
 import math
-import csv
-from scipy import stats
+
 from easydict import EasyDict
-import argparse
 
 from model import CircuitGNN, PT_GNN, MT_GNN
 import copy
+
+from reward_fn import compute_batch_reward
+
 
 def rse(y,yt):
 
@@ -262,29 +250,31 @@ def test(test_loader, model, n_epoch, batch_size, num_node, model_index, flag,de
             print("Final RSE:",rse(np.reshape(out_list,-1),np.reshape(gold_list,-1)))
 
 
+def evaluate_top_K(out, ground_truth, k):
+    out = np.array(out)
+    ground_truth = np.array(ground_truth)
 
-def compute_smooth_reward(eff, vout, target_vout = .5):
-    a = abs(target_vout) / 15
+    candidates = out.argsort()[-k:]
 
-    eff[np.logical_or(eff > 1, eff < 0)] = 0.
+    # the ground truth values of the candidates
+    candidate_gt = ground_truth[candidates]
+    # the candidate that has the best true value
+    candidate_arg_max = candidates[np.argmax(candidate_gt)]
 
-    return eff * (1.1 ** (-((vout - target_vout) / a) ** 2))
-
-def compute_piecewise_liear_reward(eff, vout):
-    eff[np.logical_or(eff > 1, eff < 0)] = 0.
-    eff[np.logical_or(vout < .35, vout > .65)] = 0.
-
-    return eff
-
-compute_reward = compute_piecewise_liear_reward
+    return max(ground_truth[candidates]), candidate_arg_max
 
 def optimize_reward(test_loader, eff_model, vout_model,
                     n_epoch, batch_size, num_node, model_index, flag,device, th):
     n_batch_test = 0
 
-    sim_list = []
-    analytic_list = []
-    out_list = []
+    sim_rewards = []
+    analytic_rewards = []
+    gnn_rewards = []
+
+    all_gnn_eff = []
+    all_gnn_vout = []
+    all_analytic_eff = []
+    all_analytic_vout = []
 
     sim_opts = []
     analytic_performs = []
@@ -316,29 +306,42 @@ def optimize_reward(test_loader, eff_model, vout_model,
         else:
             eff = eff_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
             vout = vout_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
+            #r = r_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
 
-        eff = eff.squeeze(1)
-        vout = vout.squeeze(1)
+        gnn_eff = eff.squeeze(1)
+        gnn_vout = vout.squeeze(1)
+        #r = r.squeeze(1)
 
-        sim_list.extend(compute_reward(sim_eff, sim_vout))
-        analytic_list.extend(compute_reward(analytic_eff, analytic_vout))
-        out_list.extend(compute_reward(eff, vout))
+        all_gnn_eff.extend(gnn_eff)
+        all_gnn_vout.extend(gnn_vout)
+
+        all_analytic_eff.extend(gnn_eff)
+        all_analytic_vout.extend(gnn_vout)
+
+        sim_rewards.extend(compute_batch_reward(sim_eff, sim_vout))
+        analytic_rewards.extend(compute_batch_reward(analytic_eff, analytic_vout))
+        gnn_rewards.extend(compute_batch_reward(gnn_eff, gnn_vout))
+        #out_list.extend(r)
 
         # sim opt
-        sim_opts.append(np.max(sim_list))
+        sim_opt = np.max(sim_rewards)
 
         # analytic
-        analytic_opt = np.argmax(analytic_list)
-        analytic_performs.append(sim_list[analytic_opt])
+        analytic, analytic_idx = evaluate_top_K(analytic_rewards, sim_rewards, 10)
+        print(analytic, analytic_rewards[analytic_idx], all_analytic_eff[analytic_idx], all_analytic_vout[analytic_idx])
 
         # gnn
-        gnn_opt = np.argmax(out_list)
-        gnn_performs.append(sim_list[gnn_opt])
+        gnn, gnn_idx = evaluate_top_K(gnn_rewards, sim_rewards, 10)
+        print(gnn, gnn_rewards[gnn_idx], all_gnn_eff[gnn_idx], all_gnn_vout[gnn_idx])
+
+        sim_opts.append(sim_opt)
+        analytic_performs.append(analytic)
+        gnn_performs.append(gnn)
 
     np.set_printoptions(precision=2, suppress=True)
 
-    print("GNN RSE:", rse(np.array(out_list), np.array(sim_list)))
-    print("Analytic RSE:", rse(np.array(analytic_list), np.array(sim_list)))
+    print("GNN RSE:", rse(np.array(gnn_rewards), np.array(sim_rewards)))
+    print("Analytic RSE:", rse(np.array(analytic_rewards), np.array(sim_rewards)))
 
     print('sim', sim_opts)
     print('analytic', analytic_performs)

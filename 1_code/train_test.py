@@ -1,22 +1,10 @@
 import os
 
-from torch_geometric.data import Data, DataLoader
 import torch
-import torch.nn.functional as F
 from torch.nn import Linear, MSELoss
-from torch_geometric.nn import GCNConv, global_mean_pool, NNConv
-import networkx as nx
-import matplotlib.pyplot as plt
-from torch_geometric.utils import to_networkx
-from torch_geometric.datasets import TUDataset
-from torch.utils.data.sampler import SubsetRandomSampler
+
 from topo_data import Autopo, split_balance_data
-import numpy as np
-import math
-import csv
-from scipy import stats
-from easydict import EasyDict
-from model import CircuitGNN
+
 from ml_utils import train, test, rse, initialize_model
 import argparse
 
@@ -28,16 +16,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-path', type=str, default="../0_rawdata", help='raw data path')
-    parser.add_argument('-y_select', type=str, default='reg_eff',help='define target label')
+    parser.add_argument('-y_select', type=str, default='reg_reward',help='define target label')
     parser.add_argument('-batch_size', type=int, default=32, help='batch size')
-    parser.add_argument('-n_epoch', type=int, default=10, help='number of training epoch')
+    parser.add_argument('-n_epoch', type=int, default=1, help='number of training epoch')
     parser.add_argument('-gnn_nodes', type=int, default=100, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=100, help='number of MLP predictor nodes at output of GNN') 
     parser.add_argument('-gnn_layers', type=int, default=3, help='number of layer')
     parser.add_argument('-model_index', type=int, default=1, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
 
-    parser.add_argument('-retrain', type=bool, default=False, help='force retrain model')
+    parser.add_argument('-retrain', action='store_true', default=False, help='force retrain model')
 
     args = parser.parse_args()
 
