@@ -2,7 +2,7 @@ import numpy as np
 
 
 def compute_smooth_reward(eff, vout, target_vout = .5):
-    a = abs(target_vout) / 15
+    a = abs(target_vout) / 10
 
     if eff > 1 or eff < 0:
         return 0

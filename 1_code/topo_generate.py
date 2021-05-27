@@ -1,8 +1,10 @@
 import os
 
 import torch
-from ml_utils import train, test, rse, initialize_model, optimize_reward
+from ml_utils import initialize_model, optimize_reward
 import argparse
+
+import numpy as np
 
 if __name__ == '__main__':
 
@@ -58,4 +60,20 @@ if __name__ == '__main__':
     r_model.load_state_dict(r_model_state_dict)
     """
 
-    optimize_reward(data_loader, eff_model, vout_model, n_epoch, batch_size, nnode, args.model_index, False,device,th)
+    results = []
+
+    for seed in range(20):
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+
+        result = optimize_reward(data_loader, eff_model, vout_model, n_epoch, batch_size, nnode, args.model_index, False,device,th)
+        results.append(result)
+
+    results = np.array(results)
+    mean_results = results.mean(axis=0)
+
+    print(results)
+    print(mean_results)
+
+    np.savetxt('topo_gen_results.csv', mean_results, delimiter=',', fmt='%.6f')

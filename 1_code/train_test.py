@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import torch
 from torch.nn import Linear, MSELoss
 
@@ -26,6 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
 
     parser.add_argument('-retrain', action='store_true', default=False, help='force retrain model')
+    parser.add_argument('-seed', type=int, default=0, help='random seed')
 
     args = parser.parse_args()
 
@@ -41,6 +43,11 @@ if __name__ == '__main__':
     dataset = Autopo(data_folder,path,y_select)
 
     train_loader, val_loader, test_loader = split_balance_data(dataset,y_select[:3]=='cls',batch_size)
+
+    # set random seed for training
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
 
     nf_size=4
     ef_size=3
