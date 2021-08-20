@@ -71,9 +71,12 @@ if __name__ == '__main__':
         results.append(result)
 
     results = np.array(results)
-    mean_results = results.mean(axis=0)
+    results_mean = results.mean(axis=0)
+    results_std = results.std(axis=0) / np.sqrt(results.shape[0])
 
     print(results)
-    print(mean_results)
+    print(results_mean)
+    print(results_std)
 
-    np.savetxt('topo_gen_results.csv', mean_results, delimiter=',', fmt='%.6f')
+    np.savetxt('topo_gen_result_mean.csv', results_mean, delimiter=',', fmt='%.6f')
+    np.savetxt('topo_gen_result_std.csv', results_std, delimiter=',', fmt='%.6f')
