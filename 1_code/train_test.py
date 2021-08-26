@@ -17,11 +17,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-path', type=str, default="../0_rawdata", help='raw data path')
-    parser.add_argument('-y_select', type=str, default='reg_reward',help='define target label')
+    parser.add_argument('-y_select', type=str, default='reg_eff', help='define target label')
     parser.add_argument('-batch_size', type=int, default=32, help='batch size')
-    parser.add_argument('-n_epoch', type=int, default=1, help='number of training epoch')
+    parser.add_argument('-n_epoch', type=int, default=10, help='number of training epoch')
     parser.add_argument('-gnn_nodes', type=int, default=100, help='number of nodes in hidden layer in GNN')
-    parser.add_argument('-predictor_nodes', type=int, default=100, help='number of MLP predictor nodes at output of GNN') 
+    parser.add_argument('-predictor_nodes', type=int, default=100, help='number of MLP predictor nodes at output of GNN')
     parser.add_argument('-gnn_layers', type=int, default=3, help='number of layer')
     parser.add_argument('-model_index', type=int, default=1, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
@@ -57,10 +57,18 @@ if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     data = dataset[0].to(device)
- 
-    model = initialize_model(args.model_index,args.gnn_nodes,args.predictor_nodes,args.gnn_layers,nf_size,ef_size,device)
 
-    pt_filename = y_select + '.pt'
+    model = initialize_model(model_index=args.model_index,
+                             gnn_nodes=args.gnn_nodes,
+                             gnn_layers=args.gnn_layers,
+                             pred_nodes=args.predictor_nodes,
+                             nf_size=nf_size,
+                             ef_size=ef_size,
+                             device=device)
+
+    postfix = '' if device.type == 'cuda' else '_cpu'
+    pt_filename = y_select + postfix + '.pt'
+
     if os.path.exists(pt_filename) and not args.retrain:
         print('loading model from pt file')
 
