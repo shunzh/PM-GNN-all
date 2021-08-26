@@ -332,7 +332,7 @@ class Autopo(InMemoryDataset):
         return '{}()'.format(self.__class__.__name__)
 
 
-def split_balance_data(dataset, flag_cls, batch_size):
+def split_balance_data(dataset, batch_size):
 
     train_ratio = 0.7
     val_ratio = 0.15
@@ -352,20 +352,6 @@ def split_balance_data(dataset, flag_cls, batch_size):
     n_val=int(dataset_size*val_ratio)
     
     train_indices, val_indices, test_indices = indices[:n_train], indices[n_train+1:n_train+n_val], indices[n_train+n_val+1:]
-    
-
-    if flag_cls==1:
-          one_ind=[]
-          zero_ind=[]
-          for ind in train_indices:
-              if dataset[ind]['y'][0]==1:
-                  one_ind.append(ind)
-              else:
-                  zero_ind.append(ind)         
-          for i in range(round(len(zero_ind)/len(one_ind))-1):
-              train_indices=train_indices+one_ind
-          np.random.shuffle(train_indices)
-    
     
     # Creating PT data samplers and loaders:
     train_sampler = SubsetRandomSampler(train_indices)

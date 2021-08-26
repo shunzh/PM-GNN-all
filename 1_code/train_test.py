@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('-path', type=str, default="../0_rawdata", help='raw data path')
     parser.add_argument('-y_select', type=str, default='reg_eff', help='define target label')
     parser.add_argument('-batch_size', type=int, default=32, help='batch size')
-    parser.add_argument('-n_epoch', type=int, default=10, help='number of training epoch')
+    parser.add_argument('-n_epoch', type=int, default=50, help='number of training epoch')
     parser.add_argument('-gnn_nodes', type=int, default=100, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=100, help='number of MLP predictor nodes at output of GNN')
     parser.add_argument('-gnn_layers', type=int, default=3, help='number of layer')
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     dataset = Autopo(data_folder,path,y_select)
 
-    train_loader, val_loader, test_loader = split_balance_data(dataset,y_select[:3]=='cls',batch_size)
+    train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size)
 
     # set random seed for training
     np.random.seed(args.seed)
@@ -78,10 +78,18 @@ if __name__ == '__main__':
         print('training')
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
         criterion = MSELoss(reduction='mean').to(device)
-        model = train(train_loader,val_loader, model, n_epoch, batch_size,nnode,device,args.model_index,optimizer)
+        model = train(train_loader=train_loader,
+                      val_loader=val_loader,
+                      model=model,
+                      n_epoch=n_epoch,
+                      batch_size=batch_size,
+                      num_node=nnode,
+                      device=device,
+                      model_index=args.model_index,
+                      optimizer=optimizer)
 
         # save model and test data
         torch.save((model.state_dict(), test_loader), y_select + '.pt')
 
-    test(test_loader, model, n_epoch, batch_size, nnode, args.model_index, y_select[:3]=='cls',device,th)
+    test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index, device=device)
 
