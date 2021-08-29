@@ -35,7 +35,7 @@ def rse(y,yt):
     return rse
 
 
-def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef_size,device):
+def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef_size, device):
     args = EasyDict()
     args.len_hidden = gnn_nodes
     args.len_hidden_predictor = pred_nodes
@@ -210,8 +210,13 @@ def evaluate_top_K(out, ground_truth, k):
 
     return max(ground_truth[candidates]), candidate_arg_max
 
-def optimize_reward(test_loader, eff_model, vout_model,
-                    n_epoch, batch_size, num_node, model_index, flag,device, th):
+def find_opt_reward_topo(test_loader, eff_model, vout_model,
+                         n_epoch, batch_size, num_node, model_index, flag, device, th):
+    """
+    Find the topology in the test data set that has the highest surrogate/analytic reward.
+
+    :return: [[true reward of the best topo in the first x test data under criterion y] for y in simulator, analytic, gnn]
+    """
     n_batch_test = 0
 
     sim_rewards = []
@@ -261,7 +266,6 @@ def optimize_reward(test_loader, eff_model, vout_model,
 
         gnn_eff = eff.squeeze(1)
         gnn_vout = vout.squeeze(1)
-        #r = r.squeeze(1)
 
         all_sim_eff.extend(sim_eff)
         all_sim_vout.extend(sim_vout)
@@ -281,34 +285,17 @@ def optimize_reward(test_loader, eff_model, vout_model,
         sim_opt = np.max(sim_rewards)
         sim_opt_idx = np.argmax(sim_rewards)
 
-        print('sim: reward {}, eff {}, vout {}'
-              .format(sim_opt, all_sim_eff[sim_opt_idx], all_sim_vout[sim_opt_idx]))
         sim_opts.append(sim_opt)
 
         for k in k_list:
             # analytic
             analytic, analytic_idx = evaluate_top_K(analytic_rewards, sim_rewards, k)
-            print('analytic {}: true reward {}, true eff {}, true vout {}, predicted reward {}, predicted eff {}, predicted vout {}'
-                  .format(k, analytic, all_sim_eff[analytic_idx], all_sim_vout[analytic_idx],
-                          analytic_rewards[analytic_idx], all_analytic_eff[analytic_idx], all_analytic_vout[analytic_idx]))
             analytic_performs[k].append(analytic)
 
             # gnn
             gnn, gnn_idx = evaluate_top_K(gnn_rewards, sim_rewards, k)
-            print('gnn {}: true reward {}, true eff {}, true vout {}, predicted reward {}, predicted eff {}, predicted vout {}'
-                  .format(k, gnn, all_sim_eff[gnn_idx], all_sim_vout[gnn_idx],
-                          gnn_rewards[gnn_idx], all_gnn_eff[gnn_idx], all_gnn_vout[gnn_idx]))
             gnn_performs[k].append(gnn)
 
-        print()
-
     np.set_printoptions(precision=2, suppress=True)
-
-    print("GNN RSE:", rse(np.array(gnn_rewards), np.array(sim_rewards)))
-    print("Analytic RSE:", rse(np.array(analytic_rewards), np.array(sim_rewards)))
-
-    print('sim', sim_opts)
-    print('analytic', analytic_performs)
-    print('gnn', gnn_performs)
 
     return [sim_opts] + list(analytic_performs.values()) + list(gnn_performs.values())
