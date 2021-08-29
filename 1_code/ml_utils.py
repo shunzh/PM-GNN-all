@@ -76,6 +76,7 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
                  data.to(device)
                  L=data.node_attr.shape[0]
                  B=int(L/num_node)
+#                 print(L,B,data.node_attr)
                  node_attr=torch.reshape(data.node_attr,[B,int(L/B),-1])
                  if model_index == 0:
                      edge_attr=torch.reshape(data.edge0_attr,[B,int(L/B),int(L/B),-1])
@@ -190,7 +191,7 @@ def test(test_loader, model, num_node, model_index, device):
              out_list.extend(out)
 
              L=len(gold)
-#             print(out,gold)
+             print(out,gold)
              rse_result=rse(out,gold)
              np.set_printoptions(precision=2,suppress=True)
 #

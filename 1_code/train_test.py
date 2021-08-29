@@ -18,15 +18,15 @@ if __name__ == '__main__':
 
     parser.add_argument('-path', type=str, default="../0_rawdata", help='raw data path')
     parser.add_argument('-y_select', type=str, default='reg_eff', help='define target label')
-    parser.add_argument('-batch_size', type=int, default=32, help='batch size')
-    parser.add_argument('-n_epoch', type=int, default=50, help='number of training epoch')
+    parser.add_argument('-batch_size', type=int, default=16, help='batch size')
+    parser.add_argument('-n_epoch', type=int, default=100, help='number of training epoch')
     parser.add_argument('-gnn_nodes', type=int, default=100, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=100, help='number of MLP predictor nodes at output of GNN')
-    parser.add_argument('-gnn_layers', type=int, default=3, help='number of layer')
+    parser.add_argument('-gnn_layers', type=int, default=4, help='number of layer')
     parser.add_argument('-model_index', type=int, default=1, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
 
-    parser.add_argument('-retrain', action='store_true', default=False, help='force retrain model')
+    parser.add_argument('-retrain', action='store_true', default=True, help='force retrain model')
     parser.add_argument('-seed', type=int, default=0, help='random seed')
 
     args = parser.parse_args()
@@ -40,7 +40,7 @@ if __name__ == '__main__':
  
 # ======================== Data & Model ==========================#
 
-    dataset = Autopo(data_folder,path,y_select)
+    dataset = Autopo(data_folder,path,y_select,3)
 
     train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size)
 
@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     nf_size=4
     ef_size=3
-    nnode=4
+    nnode=6
     if args.model_index==0:
         ef_size=6
 

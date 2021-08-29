@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
     nf_size = 4
     ef_size = 3
-    nnode = 4
+    nnode = 6
     if args.model_index == 0:
         ef_size = 6
 

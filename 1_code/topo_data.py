@@ -16,9 +16,10 @@ import torch_geometric
 
 class Autopo(InMemoryDataset):
 
-    def __init__(self, root, path, y_select,  transform=None, pre_transform=None, data_path_root=None ):
+    def __init__(self, root, path, y_select, ncomp,  transform=None, pre_transform=None, data_path_root=None):
         self.data_path_root = path
         self.y_select = y_select
+        self.ncomp=ncomp
         super(Autopo, self).__init__(root, transform, pre_transform)
         # tmp = self.get_tmp()
         self.data, self.slices = torch.load(self.processed_paths[0])
@@ -36,18 +37,25 @@ class Autopo(InMemoryDataset):
 
         print("get_tmp running")
         y_select=self.y_select
+        ncomp=self.ncomp
 
-        json_file = json.load(open(self.data_path_root+"/dataset.json"))
+
+        if ncomp==3 or ncomp ==5:
+              json_file = json.load(open(self.data_path_root+"/dataset"+"_"+str(ncomp)+".json"))
+        else:
+              json_file = json.load(open(self.data_path_root+"/dataset.json"))
         
         tmp = {}
 
-        max_nodes = 4
+        max_nodes = 6
 
         empty_node=[0,0,0,0]
         empty_edge=[0,0,0]
         empty_edge0=[0,0,0,0,0,0]
 
+        nn=0
 
+ 
         for item in json_file:
 
             file_name = item
@@ -58,6 +66,10 @@ class Autopo(InMemoryDataset):
             edge_attr = json_file[item]["edge_attr"]
             node_attr = json_file[item]["node_attr"]
             edge_attr0 = json_file[item]["edge_attr0"]
+
+            nn=nn+1
+            #if nn>2:
+            #    break
 
             if abs(json_file[item]["vout"] / 100) > 1:
                 continue
@@ -276,6 +288,8 @@ class Autopo(InMemoryDataset):
 
 
 
+            print(node_attr_padded)
+
             tmp[file_name]['node_attr'] = node_attr_padded
             tmp[file_name]['edge0_attr'] = edge_attr0_padded
             tmp[file_name]['edge1_attr'] = edge_attr1_padded
@@ -312,6 +326,9 @@ class Autopo(InMemoryDataset):
             sim_eff=torch.tensor(tmp[fn]["sim_eff"],dtype=torch.float)
             sim_vout=torch.tensor(tmp[fn]["sim_vout"],dtype=torch.float)
 
+
+            print(node_attr)
+#            print(edge1_attr)
             data=Data(node_attr=node_attr,edge0_attr=edge0_attr,edge1_attr=edge1_attr,edge2_attr=edge2_attr,adj=adj,label=label,
                       analytic_eff=analytic_eff, analytic_vout=analytic_vout,
                       sim_eff=sim_eff, sim_vout=sim_vout)
