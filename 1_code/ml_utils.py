@@ -194,7 +194,9 @@ def test(test_loader, model, num_node, model_index, device):
              rse_result=rse(out,gold)
              np.set_printoptions(precision=2,suppress=True)
 #
-        print("Final RSE:",rse(np.reshape(out_list,-1),np.reshape(gold_list,-1)))
+        rse_value = rse(np.reshape(out_list,-1),np.reshape(gold_list,-1))
+        print("Final RSE:", rse_value)
+        return rse_value
 
 
 def evaluate_top_K(out, ground_truth, k):

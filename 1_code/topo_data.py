@@ -47,7 +47,6 @@ class Autopo(InMemoryDataset):
         empty_edge=[0,0,0]
         empty_edge0=[0,0,0,0,0,0]
 
-
         for item in json_file:
 
             file_name = item

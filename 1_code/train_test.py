@@ -1,3 +1,4 @@
+import csv
 import os
 
 import numpy as np
@@ -91,5 +92,8 @@ if __name__ == '__main__':
         # save model and test data
         torch.save((model.state_dict(), test_loader), y_select + '.pt')
 
-    test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index, device=device)
+    rse = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index, device=device)
 
+    with open('transformer_para_search_' + y_select + '.csv', 'a') as f:
+        csv_handler = csv.writer(f, delimiter=',')
+        csv_handler.writerow([args.seed, args.gnn_layers, args.predictor_nodes, rse])
