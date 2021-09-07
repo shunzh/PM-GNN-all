@@ -275,8 +275,8 @@ class PT_GNN(nn.Module):
         nhid=args.len_hidden
         self.gnn_encoder = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr, n_edge_attr=args.len_edge_attr, n_layers=args.gnn_layers,use_gpu=False,dropout=args.dropout)
          
-        self.lin1 = torch.nn.Linear(6*nhid, 64)
-#        self.lin2 = torch.nn.Linear(256,512)
+        self.lin1 = torch.nn.Linear(6*nhid, 128)
+        self.lin2 = torch.nn.Linear(128,64)
 #        self.lin3 = torch.nn.Linear(512,256)
 #        self.lin4 = torch.nn.Linear(256,128)
 #        self.lin5 = torch.nn.Linear(128,64)
@@ -294,7 +294,9 @@ class PT_GNN(nn.Module):
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]],1)
        
         x=self.lin1(gnn_code)
-        x=torch.relu(x)
+#        x=torch.relu(x)
+        x=self.lin2(x)
+#        x=torch.relu(x)
 #        x=self.lin2(x)
 #        x=torch.relu(x)
 #        x=self.lin3(x)

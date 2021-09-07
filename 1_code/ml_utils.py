@@ -43,7 +43,7 @@ def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef
     args.len_edge_attr = ef_size
     args.gnn_layers = gnn_layers
     args.use_gpu = False
-    args.dropout = 0.0
+    args.dropout = 0
 
     if model_index==0:
         model = CircuitGNN(args).to(device)
@@ -146,11 +146,11 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
                     epoch_min=epoch
                     min_val_loss=val_loss_ave
                  if epoch-epoch_min>5:
+                    print("training loss:",train_perform)
                     return model_copy
 
 
         train_perform.append(train_loss/n_batch_train/batch_size)
-
     return model      
 
 
@@ -191,10 +191,11 @@ def test(test_loader, model, num_node, model_index, device):
              out_list.extend(out)
 
              L=len(gold)
-             print(out,gold)
              rse_result=rse(out,gold)
              np.set_printoptions(precision=2,suppress=True)
 #
+        print("Predicted:",out[0:63])
+        print("True     :",gold[0:63])
         print("Final RSE:",rse(np.reshape(out_list,-1),np.reshape(gold_list,-1)))
 
 

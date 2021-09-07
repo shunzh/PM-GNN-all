@@ -1,0 +1,24 @@
+
+Circuit: buck.cki
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+gate_a                                       0
+gate_b                                     100
+in_exact                                   100
+in                                         100
+out                                          0
+7                                          100
+12                                           0
+10                                           0
+l0#branch                                    0
+vin#branch                                   0
+vclock2#branch                               0
+vclock1#branch                               0
+

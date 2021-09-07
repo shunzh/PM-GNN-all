@@ -47,7 +47,7 @@ class Autopo(InMemoryDataset):
         
         tmp = {}
 
-        max_nodes = 6
+        max_nodes = 7
 
         empty_node=[0,0,0,0]
         empty_edge=[0,0,0]
@@ -68,10 +68,15 @@ class Autopo(InMemoryDataset):
             edge_attr0 = json_file[item]["edge_attr0"]
 
             nn=nn+1
+            print(nn)
             #if nn>2:
             #    break
 
-            if abs(json_file[item]["vout"] / 100) > 1:
+            print(file_name)
+            print(list_of_node)
+            print(list_of_edge)
+
+            if json_file[item]["vout"] / 100 > 1 or json_file[item]["vout"] / 100 < 0:
                 continue
 
             target_vout=[]
@@ -146,6 +151,11 @@ class Autopo(InMemoryDataset):
             for edge in list_of_edge:
                 tmp_list_of_edge.append(edge[:])
 
+            print("edge_attr:",edge_attr)
+            print(list_of_node_name)
+            print(list_of_edge_name)
+            print(tmp_list_of_edge)
+
             node_to_delete=[]
             node_to_replace=[]
 
@@ -168,6 +178,12 @@ class Autopo(InMemoryDataset):
                 if node not in node_to_delete:
                     list_of_node_new.append(node)
 
+
+            print(list_of_node_name)
+            print(list_of_node_new)
+
+
+            print(list_of_edge_new)
 
             node_attr_new=[]
             for node in list_of_node_new:
@@ -262,10 +278,6 @@ class Autopo(InMemoryDataset):
 
             node_attr_padded[:n,:]=node_attr_new
            
-            print(edge_index)
-            print(edge_attr_new1)
-            print(len(node_attr_new))
-
             edge_attr0=torch_geometric.utils.to_dense_adj(torch.tensor(edge_index),None,torch.tensor(edge_attr_new0),len(node_attr_new))[0]
 
             edge_attr1=torch_geometric.utils.to_dense_adj(torch.tensor(edge_index),None,torch.tensor(edge_attr_new1),len(node_attr_new))[0]
@@ -285,10 +297,6 @@ class Autopo(InMemoryDataset):
                 for j in range(max_nodes):
                     if not all(v==0 for v in edge_attr1_padded[i,j]):
                         adjacent_matrix[i,j]=1
-
-
-
-            print(node_attr_padded)
 
             tmp[file_name]['node_attr'] = node_attr_padded
             tmp[file_name]['edge0_attr'] = edge_attr0_padded
@@ -349,11 +357,11 @@ class Autopo(InMemoryDataset):
         return '{}()'.format(self.__class__.__name__)
 
 
-def split_balance_data(dataset, batch_size):
+def split_balance_data(dataset, batch_size,rtrain,rval,rtest):
 
-    train_ratio = 0.7
-    val_ratio = 0.15
-    test_ratio = 1-train_ratio-val_ratio
+    train_ratio = rtrain
+    val_ratio = rval
+    test_ratio = rtest
     
     shuffle_dataset = True
     random_seed = 42
@@ -367,8 +375,9 @@ def split_balance_data(dataset, batch_size):
     
     n_train=int(dataset_size*train_ratio)
     n_val=int(dataset_size*val_ratio)
-    
-    train_indices, val_indices, test_indices = indices[:n_train], indices[n_train+1:n_train+n_val], indices[n_train+n_val+1:]
+    n_test=int(dataset_size*test_ratio)
+
+    train_indices, val_indices, test_indices = indices[:n_train], indices[n_train+1:n_train+n_val], indices[n_train+n_val+1:n_train+n_val+n_test]
     
     # Creating PT data samplers and loaders:
     train_sampler = SubsetRandomSampler(train_indices)
