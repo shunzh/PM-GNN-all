@@ -16,9 +16,10 @@ import torch_geometric
 
 class Autopo(InMemoryDataset):
 
-    def __init__(self, root, path, y_select,  transform=None, pre_transform=None, data_path_root=None ):
+    def __init__(self, root, path, y_select, ncomp,  transform=None, pre_transform=None, data_path_root=None):
         self.data_path_root = path
         self.y_select = y_select
+        self.ncomp=ncomp
         super(Autopo, self).__init__(root, transform, pre_transform)
         # tmp = self.get_tmp()
         self.data, self.slices = torch.load(self.processed_paths[0])
@@ -36,18 +37,25 @@ class Autopo(InMemoryDataset):
 
         print("get_tmp running")
         y_select=self.y_select
+        ncomp=self.ncomp
 
-        json_file = json.load(open(self.data_path_root+"/dataset.json"))
+
+        if ncomp==3 or ncomp ==5:
+              json_file = json.load(open(self.data_path_root+"/dataset"+"_"+str(ncomp)+".json"))
+        else:
+              json_file = json.load(open(self.data_path_root+"/dataset.json"))
         
         tmp = {}
 
-        max_nodes = 4
+        max_nodes = 7
 
         empty_node=[0,0,0,0]
         empty_edge=[0,0,0]
         empty_edge0=[0,0,0,0,0,0]
 
+        nn=0
 
+ 
         for item in json_file:
 
             file_name = item
@@ -59,7 +67,16 @@ class Autopo(InMemoryDataset):
             node_attr = json_file[item]["node_attr"]
             edge_attr0 = json_file[item]["edge_attr0"]
 
-            if abs(json_file[item]["vout"] / 100) > 1:
+            nn=nn+1
+           # print(nn)
+            #if nn>2:
+            #    break
+
+           # print(file_name)
+           # print(list_of_node)
+           # print(list_of_edge)
+
+            if json_file[item]["vout"] / 100 > 1 or json_file[item]["vout"] / 100 < 0:
                 continue
 
             target_vout=[]
@@ -83,15 +100,17 @@ class Autopo(InMemoryDataset):
             vout = json_file[item]["vout"] / 100
             r = compute_reward(eff, vout)
 
-            target_eff.append(eff)
-            target_vout.append(vout)
+#            target_eff.append(eff)
+#            target_vout.append(vout)
             target_rewards.append(r)
 
             if y_select=='reg_eff':
-                 label=target_eff
+                target_eff.append(float(json_file[item]["eff"]))
+                label=target_eff
 
             elif y_select=='reg_vout':
-                 label=target_vout
+                target_vout.append(float(json_file[item]["vout"]/100)) 
+                label=target_vout
 
             elif y_select=='reg_reward':
                  label = target_rewards
@@ -101,7 +120,7 @@ class Autopo(InMemoryDataset):
                  label=target_vout
  
             elif y_select=='cls_buck':
-                 target_vout.append(float(35<json_file[item]["vout"]<65))
+                 target_vout.append(float(json_file[item]["vout"]/100))
                  label=target_vout
  
             else:
@@ -134,6 +153,11 @@ class Autopo(InMemoryDataset):
             for edge in list_of_edge:
                 tmp_list_of_edge.append(edge[:])
 
+           # print("edge_attr:",edge_attr)
+           # print(list_of_node_name)
+           # print(list_of_edge_name)
+           # print(tmp_list_of_edge)
+
             node_to_delete=[]
             node_to_replace=[]
 
@@ -156,6 +180,12 @@ class Autopo(InMemoryDataset):
                 if node not in node_to_delete:
                     list_of_node_new.append(node)
 
+
+            #print(list_of_node_name)
+            #print(list_of_node_new)
+
+
+            #print(list_of_edge_new)
 
             node_attr_new=[]
             for node in list_of_node_new:
@@ -250,10 +280,6 @@ class Autopo(InMemoryDataset):
 
             node_attr_padded[:n,:]=node_attr_new
            
-            print(edge_index)
-            print(edge_attr_new1)
-            print(len(node_attr_new))
-
             edge_attr0=torch_geometric.utils.to_dense_adj(torch.tensor(edge_index),None,torch.tensor(edge_attr_new0),len(node_attr_new))[0]
 
             edge_attr1=torch_geometric.utils.to_dense_adj(torch.tensor(edge_index),None,torch.tensor(edge_attr_new1),len(node_attr_new))[0]
@@ -273,8 +299,6 @@ class Autopo(InMemoryDataset):
                 for j in range(max_nodes):
                     if not all(v==0 for v in edge_attr1_padded[i,j]):
                         adjacent_matrix[i,j]=1
-
-
 
             tmp[file_name]['node_attr'] = node_attr_padded
             tmp[file_name]['edge0_attr'] = edge_attr0_padded
@@ -312,6 +336,9 @@ class Autopo(InMemoryDataset):
             sim_eff=torch.tensor(tmp[fn]["sim_eff"],dtype=torch.float)
             sim_vout=torch.tensor(tmp[fn]["sim_vout"],dtype=torch.float)
 
+
+#            print(node_attr)
+#            print(edge1_attr)
             data=Data(node_attr=node_attr,edge0_attr=edge0_attr,edge1_attr=edge1_attr,edge2_attr=edge2_attr,adj=adj,label=label,
                       analytic_eff=analytic_eff, analytic_vout=analytic_vout,
                       sim_eff=sim_eff, sim_vout=sim_vout)
@@ -332,11 +359,11 @@ class Autopo(InMemoryDataset):
         return '{}()'.format(self.__class__.__name__)
 
 
-def split_balance_data(dataset, batch_size):
+def split_balance_data(dataset, batch_size,rtrain,rval,rtest):
 
-    train_ratio = 0.7
-    val_ratio = 0.15
-    test_ratio = 1-train_ratio-val_ratio
+    train_ratio = rtrain
+    val_ratio = rval
+    test_ratio = rtest
     
     shuffle_dataset = True
     random_seed = 42
@@ -350,14 +377,90 @@ def split_balance_data(dataset, batch_size):
     
     n_train=int(dataset_size*train_ratio)
     n_val=int(dataset_size*val_ratio)
-    
-    train_indices, val_indices, test_indices = indices[:n_train], indices[n_train+1:n_train+n_val], indices[n_train+n_val+1:]
+    n_test=int(dataset_size*test_ratio)
+
+    train_indices, val_indices, test_indices = indices[:n_train], indices[n_train+1:n_train+n_val], indices[n_train+n_val+1:n_train+n_val+n_test]
     
     # Creating PT data samplers and loaders:
     train_sampler = SubsetRandomSampler(train_indices)
     valid_sampler = SubsetRandomSampler(val_indices)
     test_sampler = SubsetRandomSampler(test_indices)
     
+    train_loader = DataLoader(
+            dataset, batch_size=batch_size, sampler=train_sampler)
+    val_loader = DataLoader(
+            dataset, batch_size=batch_size, sampler=valid_sampler)
+    test_loader = DataLoader(
+            dataset, batch_size=batch_size, sampler=test_sampler)
+    
+    return train_loader, val_loader, test_loader
+
+def split_imbalance_data(dataset, batch_size,rtrain,rval,rtest):
+
+    train_ratio = rtrain
+    val_ratio = rval
+    test_ratio = rtest
+    
+    shuffle_dataset = True
+    random_seed = 42
+    
+    dataset_size = len(dataset)
+    indices = list(range(dataset_size))
+
+
+    
+    if shuffle_dataset:
+            np.random.seed(random_seed)
+            np.random.shuffle(indices)
+   
+    ind_positive=[]
+    ind_negative=[]
+    ind=0
+
+    for data in dataset:
+        flag_cls=data['label'].tolist()[0]
+        if 0.3<flag_cls<0.7:
+            ind_positive.append(ind)
+        else:
+            ind_negative.append(ind)
+        ind+=1
+
+
+    print(len(ind_positive))
+    print(len(ind_negative))
+    indices_new=[]
+
+    for i in range(int(len(ind_negative)/len(ind_positive))):
+        indices_new.extend(ind_positive)
+
+    indices_new.extend(ind_negative)
+
+    dataset_size_new=len(indices_new)
+
+    n_train=int(dataset_size_new*train_ratio)
+    n_val=int(dataset_size_new*val_ratio)
+    n_test=int(dataset_size_new*test_ratio)
+
+    
+    if shuffle_dataset:
+            np.random.seed(random_seed)
+            np.random.shuffle(indices_new)
+ 
+
+    train_indices, val_indices, test_indices = indices_new[:n_train], indices_new[n_train+1:n_train+n_val], indices_new[n_train+n_val+1:n_train+n_val+n_test]
+   
+
+
+    # Creating PT data samplers and loaders:
+    train_sampler = SubsetRandomSampler(train_indices)
+    valid_sampler = SubsetRandomSampler(val_indices)
+    test_sampler = SubsetRandomSampler(test_indices)
+   
+
+#    print(train_indices)
+#    print(val_indices)
+#    print(test_indices)
+
     train_loader = DataLoader(
             dataset, batch_size=batch_size, sampler=train_sampler)
     val_loader = DataLoader(

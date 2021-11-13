@@ -1,0 +1,28 @@
+
+Circuit: buck.cki
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+
+Transient solution failed -
+
+Last Node Voltages
+------------------
+
+Node                                   Last Voltage        Previous Iter
+----                                   ------------        -------------
+gate_a                                            0                    0
+gate_b                                            0                    0
+in_exact                                          0                    0
+in                                                0                    0
+out                                               0                    0
+11                                                0                    0
+9                                                 0                    0
+12                                                0                    0
+vin#branch                                        0                    0
+vclock2#branch                                    0                    0
+vclock1#branch                                    0                    0
+
+
+
+No. of Data Rows : 0

@@ -1,0 +1,82 @@
+
+cp -r 0_template t00
+cp -r 0_template t01
+cp -r 0_template t02
+cp -r 0_template t03
+cp -r 0_template t04
+cp -r 0_template t05
+cp -r 0_template t06
+cp -r 0_template t07
+cp -r 0_template t08
+cp -r 0_template t09
+cp -r 0_template t10
+cp -r 0_template t11
+cp -r 0_template t12
+cp -r 0_template t13
+cp -r 0_template t14
+cp -r 0_template t15
+
+cd ./t00
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t01
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t02
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t03
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t04
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t05
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t06
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t07
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t08
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t09
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t10
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t11
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t12
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t13
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t14
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+
+cd ./t15
+nohup python3 -u sim.py >out.log 2<&1 &
+cd ..
+

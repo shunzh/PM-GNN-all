@@ -154,20 +154,24 @@ class GraphInteractionLayer(nn.Module):
         """
 
         B, N = node_code.size(0), node_code.size(1)
-#        print(B,N)
-#        print(node_code.shape,node_attr.shape)
+
         node_info = torch.cat([node_code, node_attr], 2)
 
         receiver_info = node_info[:, :, None, :].repeat(1, 1, N, 1)
+        #[256,7,7,104]
         sender_info = node_info[:, None, :, :].repeat(1, N, 1, 1)
-
+        #[256,7,7,104]
         edge_input = torch.cat([edge_attr, receiver_info, sender_info], 3)
+        #[256,7,7,211]
         edge_code = F.leaky_relu(self.edge_processor(edge_input.reshape(B * N * N, -1)).reshape(B, N, N, -1))
+        #[256,7,7,100]
 
         edge_agg = (edge_code * adj[:, :, :, None]).sum(2)
-
+        #[256,7,100]
         node_input = torch.cat([node_info, edge_agg], 2)
+        #[256,7,204]
         new_node_code = self.node_processor(node_input.reshape(B * N, -1)).reshape(B, N, -1)
+        #[256,7,100]
 
         if return_edge_code: return new_node_code, edge_code
 
@@ -191,7 +195,8 @@ class GIN(nn.Module):
 
         self.layers = []
         for i in range(n_layers):
-            layer = GraphInteractionLayer(n_node_attr=n_node_attr, n_node_code=n_node_code, n_edge_attr=n_edge_attr,
+            layer = GraphInteractionLayer(n_node_attr=n_node_attr, n_node_code=n_node_code,
+                                          n_edge_attr=n_edge_attr,
                                           n_edge_code=n_edge_code)
             self.layers.append(layer)
             setattr(self, 'gin_layer_{}'.format(i), layer)
@@ -200,6 +205,7 @@ class GIN(nn.Module):
             nn.Linear(n_node_attr, n_node_code),
             nn.LeakyReLU(0.1),
         )
+        #将node_attr进行encode,输入：4，输出：100
         self.n_node_code = n_node_code
         self.n_layers = n_layers
         self.use_gpu = use_gpu
@@ -210,6 +216,7 @@ class GIN(nn.Module):
             self.drop_layers = None
 
     def forward(self, node_attr, edge_attr, adj, return_edge_code=False):
+
         x = self.node_encoder(node_attr)
         x_edge_codes = []
         for i in range(self.n_layers):
@@ -221,10 +228,12 @@ class GIN(nn.Module):
             x = F.leaky_relu(x)
             if self.drop_layers is not None:
                 x = self.drop_layers[i](x)
+
         if return_edge_code:
+
             return x, x_edge_codes
 
-#        print("X:",x.shape)
+
 
         return x
 
@@ -239,6 +248,7 @@ def weights_init(m):
 class CircuitGNN(nn.Module):
 
     def __init__(self, args):
+
         super(CircuitGNN, self).__init__()
 
         nhid = args.len_hidden
@@ -254,11 +264,17 @@ class CircuitGNN(nn.Module):
     def forward(self, input, return_edge_code=False):
         
         node_attr, edge_attr, adj = input
+        # print("circuit_GNN input", len(input))
+        # print("circuit_GNN node_attr", node_attr.shape)
+        # print("circuit_GNN edge_attr", edge_attr.shape)
+        # print("circuit_GNN adi", adj.shape)
         if return_edge_code:
             gnn_node_codes, edge_codes = self.gnn_encoder(node_attr, edge_attr, adj, return_edge_code)
         else:
             gnn_node_codes = self.gnn_encoder(node_attr, edge_attr, adj)
+        #print("gnn_node_codes", gnn_node_codes.shape)
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]],1)
+        #print("gnn__code", gnn_code.shape)
  #       print("Gnn output:",gnn_code.shape)
         x=self.lin1(gnn_code)
         x=self.lin2(x)
@@ -274,26 +290,48 @@ class PT_GNN(nn.Module):
 
         nhid=args.len_hidden
         self.gnn_encoder = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr, n_edge_attr=args.len_edge_attr, n_layers=args.gnn_layers,use_gpu=False,dropout=args.dropout)
-         
-        self.lin1 = torch.nn.Linear(6*nhid, 128)
+#-------------------------------------------------------------#
+        self.node_decoder = nn.Sequential(
+            nn.Linear(nhid, args.len_node_attr),
+            nn.LeakyReLU(0.1),
+        )
+#-------------------------------------------------------------#
+        self.lin1 = torch.nn.Linear(3*nhid, 128)
         self.lin2 = torch.nn.Linear(128,64)
         self.output = torch.nn.Linear(64,1)
  
     def forward(self, input, return_edge_code=False):
-        
+       
         node_attr, edge_attr1, edge_attr2, adj = input
-        gnn_node_codes1 = self.gnn_encoder(node_attr, edge_attr1, adj)
-        gnn_node_codes2 = self.gnn_encoder(node_attr, edge_attr2, adj)
+        # print("PT_GNN input", len(input))
+        # print("PT_GNN node_attr", node_attr.shape)
+        # print("PT_GNN edge_attr1", edge_attr1.shape)
+        # print("PT_GNN edge_attr2", edge_attr2.shape)
+        # print("PT_GNN adi", adj.shape)
 
-        gnn_node_codes=torch.cat([gnn_node_codes1,gnn_node_codes2],dim=2)
+
+#-----------------------------------------------------------------------------------#
+        gnn_node_codes1 = self.gnn_encoder(node_attr, edge_attr1, adj)
+        node_attr_phase1=self.node_decoder(gnn_node_codes1)
+        gnn_node_codes = self.gnn_encoder(node_attr_phase1, edge_attr2, adj)
+# -----------------------------------------------------------------------------------#
+#         gnn_node_codes1 = self.gnn_encoder(node_attr, edge_attr1, adj)
+#         gnn_node_codes2 = self.gnn_encoder(node_attr, edge_attr2, adj)
+#         gnn_node_codes=torch.cat([gnn_node_codes1,gnn_node_codes2],dim=2)
+# -----------------------------------------------------------------------------------#
+
+
+
 
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]],1)
+        #print("gnn_code", gnn_code.shape)
        
         x=self.lin1(gnn_code)
         x=self.lin2(x)
         pred=self.output(x)
 
         return torch.sigmoid(pred)
+
 
 class MT_GNN(nn.Module):
 
@@ -311,7 +349,9 @@ class MT_GNN(nn.Module):
         
         node_attr, edge_attr1, edge_attr2, adj = input
         gnn_node_codes = self.gnn_encoder(node_attr, edge_attr1+edge_attr2, adj)
+        #print("gnn_node_codes", gnn_node_codes.shape)
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]],1)
+        #print("gnn_code", gnn_code.shape)
        
         x=self.lin1(gnn_code)
         x=self.lin2(x)

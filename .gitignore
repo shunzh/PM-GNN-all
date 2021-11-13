@@ -153,4 +153,5 @@ Results
 *component_data_random
 data
 *.csv
+*.json
 *.pt
