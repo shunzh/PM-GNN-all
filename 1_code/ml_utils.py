@@ -351,3 +351,26 @@ def optimize_reward(test_loader, eff_model, vout_model,
     print('gnn', gnn_performs)
 
     return [sim_opts] + list(analytic_performs.values()) + list(gnn_performs.values())
+
+
+def compute_errors_by_bins(pred_y:np.array, true_y:np.array, bins):
+    """
+    Divide data by true_y into bins, report their rse separately
+    :param pred_y: model predictions (of the test data)
+    :param true: true labels (of the test data)
+    :param bins: a list of ranges where errors in these ranges are computed separately
+                 e.g. [(0, 0.33), (0.33, 0.66), (0.66, 1)]
+    :return: a list of rses by bins
+    """
+    results = []
+
+    for range_from, range_to in bins:
+        # get indices of data in this range
+        indices = np.nonzero(np.logical_and(range_from <= true_y, true_y < range_to))
+
+        if len(indices) > 0:
+            results.append(rse(pred_y[indices], true_y[indices]))
+        else:
+            print('empty bin in the range of ' + str(range_from) + ' ' + str(range_to))
+
+    return results
