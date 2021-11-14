@@ -60,7 +60,7 @@ def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef
 
     #选择model
 
-def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device, model_index, optimizer):
+def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device, model_index, optimizer,gnn_layers):
     train_perform=[]
 
     min_val_loss=100
@@ -73,7 +73,6 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
         n_batch_train=0
     
         model.train()
- 
 
         for i, data in enumerate(train_loader):
                  data.to(device)
@@ -89,13 +88,12 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
  
                  adj=torch.reshape(data.adj,[B,int(L/B),int(L/B)])
                  y=data.label
-                       
                  n_batch_train=n_batch_train+1
                  optimizer.zero_grad()
                  if model_index == 0:
                       out=model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device)))
                  else:
-                      out=model(input=(node_attr.to(device), edge_attr1.to(device),edge_attr2.to(device), adj.to(device)))
+                      out=model(input=(node_attr.to(device), edge_attr1.to(device),edge_attr2.to(device), adj.to(device), gnn_layers))
  
                  out=out.reshape(y.shape)
                  assert(out.shape == y.shape)
@@ -138,7 +136,7 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
                      if model_index == 0:
                           out=model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device)))
                      else:
-                          out=model(input=(node_attr.to(device), edge_attr1.to(device),edge_attr2.to(device), adj.to(device)))
+                          out=model(input=(node_attr.to(device), edge_attr1.to(device),edge_attr2.to(device), adj.to(device),gnn_layers))
 
                      out=out.reshape(y.shape)
                      assert(out.shape == y.shape)
@@ -158,17 +156,16 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
                     #print("training loss:",train_perform)
                     print("training loss minimum value:", min(train_perform))
                     print("training loss average value:", np.mean(train_perform))
-                    min_loss = min(train_perform)
-                    mean_loss = np.mean(train_perform)
-                    return model_copy, min_loss, mean_loss
+
+                    return model_copy, min(train_perform), np.mean(train_perform)
 
 
         train_perform.append(train_loss/n_batch_train/batch_size)
 
-    return model, min_loss, mean_loss
+    return model, min(train_perform), np.mean(train_perform)
 
 
-def test(test_loader, model, num_node, model_index, device):
+def test(test_loader, model, num_node, model_index, device,gnn_layers):
         model.eval()
         accuracy=0
         n_batch_test=0
@@ -198,7 +195,7 @@ def test(test_loader, model, num_node, model_index, device):
              if model_index==0:
                   out=model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
              else:
-                  out=model(input=(node_attr.to(device), edge_attr1.to(device),edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
+                  out=model(input=(node_attr.to(device), edge_attr1.to(device),edge_attr2.to(device), adj.to(device),gnn_layers)).cpu().detach().numpy()
              out=out.reshape(y.shape)
              assert(out.shape == y.shape)
              out=np.array([x for x in out])

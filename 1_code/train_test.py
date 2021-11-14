@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('-n_epoch', type=int, default=100, help='number of training epoch')
     parser.add_argument('-gnn_nodes', type=int, default=20, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=10, help='number of MLP predictor nodes at output of GNN')
-    parser.add_argument('-gnn_layers', type=int, default=1, help='number of layer')
+    parser.add_argument('-gnn_layers', type=int, default=3, help='number of layer')
     parser.add_argument('-model_index', type=int, default=1, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
     parser.add_argument('-ncomp', type=int, default=3, help='# components')
@@ -31,7 +31,7 @@ if __name__ == '__main__':
  
     parser.add_argument('-retrain', type=int, default=1, help='force retrain model')
 #    parser.add_argument('-seed', type=int, default=0, help='random seed')
-    parser.add_argument('-seedrange', type=int, default=2, help='random seed')
+    parser.add_argument('-seedrange', type=int, default=1, help='random seed')
 #----------------------------------------------------------------------------------------------------#
     parser.add_argument('-lr', type=float, default=0.01, help='learning rate')
     parser.add_argument('-weight_decay', type=float, default=5e-4, help='weight decay')
@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     dataset = Autopo(data_folder,path,y_select,ncomp)
 
-    if y_select=='cls_buck':
+    if y_select=='cls_buck' or y_select == 'reg_vout':
                 print('imbalance')
                 train_loader, val_loader, test_loader = split_imbalance_data(dataset, batch_size,train_rate,0.1,0.2)
     else:
@@ -113,8 +113,6 @@ if __name__ == '__main__':
 
         if os.path.exists(pt_filename) and retrain==0:
             print('loading model from pt file')
-            print("path exist: ",os.path.exists(pt_filename),pt_filename)
-            print("retrain: ", retrain)
 
             model_state_dict, _ = torch.load(pt_filename)
             model.load_state_dict(model_state_dict)
@@ -130,13 +128,14 @@ if __name__ == '__main__':
                           num_node=nnode,
                           device=device,
                           model_index=args.model_index,
-                          optimizer=optimizer)
+                          optimizer=optimizer,
+                          gnn_layers=gnn_layers)
 
 
             # save model and test data
             torch.save((model.state_dict(), test_loader), y_select+str(ncomp) + '.pt')
 
-        final_rse = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index, device=device)
+        final_rse = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index, device=device,gnn_layers=args.gnn_layers)
 
         final_result.append([model_index, y_select, gnn_layers, gnn_nodes,
                              min_loss,mean_loss,final_rse])

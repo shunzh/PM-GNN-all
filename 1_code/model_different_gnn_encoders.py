@@ -77,7 +77,7 @@ class GIN(nn.Module):
                  n_node_code,
                  n_edge_attr,
                  n_edge_code,
-                 n_layers=2,
+                 n_layers=1,
                  use_gpu=False,
                  dropout=0):
         super(GIN, self).__init__()
@@ -131,10 +131,10 @@ class PT_GNN(nn.Module):
 
         nhid = args.len_hidden
         self.gnn_encoder1 = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
-                               n_edge_attr=args.len_edge_attr, n_layers=args.gnn_layers, use_gpu=False,
+                               n_edge_attr=args.len_edge_attr, n_layers=1, use_gpu=False,
                                dropout=args.dropout)
         self.gnn_encoder2 = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
-                                n_edge_attr=args.len_edge_attr, n_layers=args.gnn_layers, use_gpu=False,
+                                n_edge_attr=args.len_edge_attr, n_layers=1, use_gpu=False,
                                 dropout=args.dropout)
 
         self.lin1 = torch.nn.Linear(6 * nhid, 128)
@@ -148,12 +148,15 @@ class PT_GNN(nn.Module):
         )
 
     def forward(self, input, return_edge_code=False):
-        node_attr, edge_attr1, edge_attr2, adj = input
+        node_attr, edge_attr1, edge_attr2, adj, gnn_layers = input
 
         x = self.node_encoder(node_attr)
 
-        gnn_node_codes1 = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
-        gnn_node_codes2 = self.gnn_encoder2(x, node_attr, edge_attr2, adj)
+        for i in range(gnn_layers):
+            gnn_node_codes1 = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
+        for i in range(gnn_layers):
+            gnn_node_codes2 = self.gnn_encoder2(x, node_attr, edge_attr2, adj)
+
         gnn_node_codes=torch.cat([gnn_node_codes1,gnn_node_codes2],dim=2)
 
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]], 1)
@@ -172,13 +175,11 @@ class Serial_GNN(nn.Module):
 
         nhid = args.len_hidden
 
-        print("len_node_attr:",args.len_node_attr)
-
         self.gnn_encoder1 = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
-                               n_edge_attr=args.len_edge_attr, n_layers=args.gnn_layers, use_gpu=False,
+                               n_edge_attr=args.len_edge_attr, n_layers=1, use_gpu=False,
                                dropout=args.dropout)
         self.gnn_encoder2 = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
-                               n_edge_attr=args.len_edge_attr, n_layers=args.gnn_layers, use_gpu=False,
+                               n_edge_attr=args.len_edge_attr, n_layers=1, use_gpu=False,
                                dropout=args.dropout)
 
         self.lin1 = torch.nn.Linear(3 * nhid, 128)
@@ -192,11 +193,12 @@ class Serial_GNN(nn.Module):
         )
 
     def forward(self, input, return_edge_code=False):
-        node_attr, edge_attr1, edge_attr2, adj = input
+        node_attr, edge_attr1, edge_attr2, adj, gnn_layers = input
         x = self.node_encoder(node_attr)
-
-        x1 = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
-        gnn_node_codes = self.gnn_encoder2(x1, node_attr, edge_attr2, adj)
+        for i in range(gnn_layers):
+            x1 = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
+        for i in range(gnn_layers):
+            gnn_node_codes = self.gnn_encoder2(x1, node_attr, edge_attr2, adj)
 
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]], 1)
         # print("gnn_code", gnn_code.shape)
@@ -216,13 +218,11 @@ class LOOP_GNN(nn.Module):
 
         nhid = args.len_hidden
 
-        print("len_node_attr:",args.len_node_attr)
-
         self.gnn_encoder1 = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
-                               n_edge_attr=args.len_edge_attr, n_layers=args.gnn_layers, use_gpu=False,
+                               n_edge_attr=args.len_edge_attr, n_layers=1, use_gpu=False,
                                dropout=args.dropout)
         self.gnn_encoder2 = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
-                               n_edge_attr=args.len_edge_attr, n_layers=args.gnn_layers, use_gpu=False,
+                               n_edge_attr=args.len_edge_attr, n_layers=1, use_gpu=False,
                                dropout=args.dropout)
 
         self.lin1 = torch.nn.Linear(3 * nhid, 128)
@@ -239,10 +239,11 @@ class LOOP_GNN(nn.Module):
 
 
     def forward(self, input, return_edge_code=False):
-        node_attr, edge_attr1, edge_attr2, adj = input
+        node_attr, edge_attr1, edge_attr2, adj,gnn_layers = input
+
         x = self.node_encoder(node_attr)
 
-        for loops_num in range(6):
+        for loops_num in range(gnn_layers):
             x = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
             x = self.gnn_encoder2(x, node_attr, edge_attr2, adj)
 

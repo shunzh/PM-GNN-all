@@ -359,9 +359,9 @@ def split_balance_data(dataset, batch_size, rtrain, rval, rtest):
     train_ratio = rtrain
     val_ratio = rval
     test_ratio = rtest
-    print("train_ratio", train_ratio)
-    print("val_ratio", val_ratio)
-    print("test_ratio", test_ratio)
+    # print("train_ratio", train_ratio)
+    # print("val_ratio", val_ratio)
+    # print("test_ratio", test_ratio)
 
     shuffle_dataset = True
     random_seed = 42
@@ -425,7 +425,7 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
         # print("flag_cls",flag_cls)
         if 0.3 < flag_cls < 0.7:
             ind_positive.append(ind)
-            print(ind_positive)
+            # print(ind_positive)
         else:
             ind_negative.append(ind)
         #通过判断eff是否在0.3-0.7
@@ -445,35 +445,35 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
     a = B/A/19 - 1
     i = int(a*A)
     # a = Decimal(a).quantize(Decimal('0.0'))
-    # if a < 0.5:
-    #     indices_new.extend(list(np.random.choice(ind_positive,int(a*A))))
-    # else:
-    #     for i in range(round(a)):
-    #         indices_new.extend(ind_positive)
+    if a < 0.5:
+        indices_new.extend(list(np.random.choice(ind_positive,int(a*A))))
+    else:
+        for i in range(round(a)):
+            indices_new.extend(ind_positive)
     # for i in range(len(list(np.random.choice(ind_positive, int(a * A))))):
     #     indices_new.append(list(np.random.choice(ind_positive, int(a * A)))[i])
 
-    indices_new.extend(list(np.random.choice(ind_positive, i)))
+    #indices_new.extend(list(np.random.choice(ind_positive, i)))
 
 
 
-    print("percent: ", A / (A + B))
-    print("A", A)
-    print("B", B)
+    # print("percent: ", A / (A + B))
+    # print("A", A)
+    # print("B", B)
     # print("range", round((B - 19 * A) / 19))
 
     indices_new.extend(ind_positive)
     indices_new.extend(ind_negative)
     dataset_size_new = len(indices_new)
-    print("dataset_size_new: ", dataset_size_new)
-    print("dataset_size: ", dataset_size)
+    # print("dataset_size_new: ", dataset_size_new)
+    # print("dataset_size: ", dataset_size)
 
     n_train = int(dataset_size_new * train_ratio)
     n_val = int(dataset_size_new * val_ratio)
     n_test = int(dataset_size_new * test_ratio)
-    print("n_train", type(n_train))
-    print("n_val", n_val)
-    print("n_test", n_test)
+    # print("n_train", type(n_train))
+    # print("n_val", n_val)
+    # print("n_test", n_test)
 
     if shuffle_dataset:
         np.random.seed(random_seed)
@@ -481,9 +481,9 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
 
     train_indices, val_indices, test_indices = indices_new[:n_train], indices_new[n_train + 1:n_train + n_val], \
                                                indices_new[n_train + n_val + 1:n_train + n_val + n_test]
-    print("train_indeces: ",type(train_indices))
-    print("valid_indeces: ",type(val_indices))
-    print("test_indeces: ", len(test_indices))
+    # print("train_indeces: ",type(train_indices))
+    # print("valid_indeces: ",type(val_indices))
+    # print("test_indeces: ", len(test_indices))
 
     # Creating PT data samplers and loaders:
     train_sampler = SubsetRandomSampler(train_indices)
