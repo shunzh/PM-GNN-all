@@ -43,7 +43,7 @@ class Autopo(InMemoryDataset):
         if ncomp == 3 or ncomp == 5:
             json_file = json.load(open(self.data_path_root + "/dataset" + "_" + str(ncomp) + ".json"))
         else:
-            json_file = json.load(open(self.data_path_root + "/dataset.json"))
+            json_file = json.load(open(self.data_path_root + "/dataset_5-simu.json"))
 
         tmp = {}
 
@@ -119,7 +119,16 @@ class Autopo(InMemoryDataset):
                 label = target_vout
 
             elif y_select == 'cls_buck':
-                target_vout.append(float(json_file[item]["vout"] / 100))
+                # target_vout.append(float(json_file[item]["vout"] / 100))
+                temp = float(json_file[item]["vout"])
+                if temp < 30:
+                    target_vout.append(0)
+                elif temp < 50:
+                    target_vout.append((temp-30)/20)
+                elif temp < 70:
+                    target_vout.append((70-temp)/20)
+                else:
+                    target_vout.append(0)
                 label = target_vout
 
             else:
@@ -421,7 +430,7 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
         # print(data)
         # print("1:", data['analytic_vout'].tolist())
         # print("2:", data['sim_vout'].tolist())
-        flag_cls = data['sim_vout'].tolist()[0]
+        flag_cls = data['label'].tolist()[0]
         # print("flag_cls",flag_cls)
         if 0.3 < flag_cls < 0.7:
             ind_positive.append(ind)
@@ -429,7 +438,7 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
         else:
             ind_negative.append(ind)
         #通过判断eff是否在0.3-0.7
-        #判断vout是否在0.3-0.7之间
+        #判断vout是否在0.1-0.9之间
         ind += 1
     indices_new = []
 
@@ -442,28 +451,36 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
 
     A = len(ind_positive)
     B = len(ind_negative)
-    a = B/A/19 - 1
+    a = B/A/4 - 1
     i = int(a*A)
+    positive_percentage = A/(A+B)
     # a = Decimal(a).quantize(Decimal('0.0'))
-    if a < 0.5:
-        indices_new.extend(list(np.random.choice(ind_positive,int(a*A))))
+    print("percent: ", positive_percentage)
+    print("A", A)
+    print("B", B)
+    print("range", round((B - 4 * A) / 4))
+
+    if positive_percentage > 0.2:
+        indices_new.extend(list(np.random.choice(ind_positive, int((-a) * A))))
+        indices_new.extend(ind_negative)
     else:
-        for i in range(round(a)):
+        if a < 0.5:
+            indices_new.extend(list(np.random.choice(ind_positive,int(a*A))))
+        else:
+            for i in range(round(a)):
+                indices_new.extend(ind_positive)
             indices_new.extend(ind_positive)
+            indices_new.extend(ind_negative)
     # for i in range(len(list(np.random.choice(ind_positive, int(a * A))))):
     #     indices_new.append(list(np.random.choice(ind_positive, int(a * A)))[i])
 
     #indices_new.extend(list(np.random.choice(ind_positive, i)))
 
 
+    print("new positve percentage: ",(len(indices_new)-dataset_size)/len(indices_new))
 
-    # print("percent: ", A / (A + B))
-    # print("A", A)
-    # print("B", B)
-    # print("range", round((B - 19 * A) / 19))
 
-    indices_new.extend(ind_positive)
-    indices_new.extend(ind_negative)
+
     dataset_size_new = len(indices_new)
     # print("dataset_size_new: ", dataset_size_new)
     # print("dataset_size: ", dataset_size)

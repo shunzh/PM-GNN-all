@@ -1,3 +1,5 @@
+import pprint
+
 import torch
 import torch.nn.functional as F
 
@@ -20,19 +22,22 @@ def rse(y,yt):
     m_yt=yt.mean()
 #    print(yt,m_yt)
     for i in range(len(yt)):
-        var+=(yt[i]-m_yt)**2 
-
+        var+=(yt[i]-m_yt)**2
+    print("len(y)",len(y))
+    var = var/len(y)
     mse=0
     for i in range(len(yt)):
         mse+=(y[i]-yt[i])**2
-
+    mse = mse/len(y)
+    # print("var: ", var)
+    # print("mse: ",mse)
     rse=mse/(var+0.0000001)
 
     rmse=math.sqrt(mse/len(yt))
 
 #    print(rmse)
 
-    return rse
+    return rse,mse
 
 
 def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef_size,device):
@@ -231,8 +236,11 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
 #        print("Predicted:",out[0:128])
 #        print("True     :",gold[0:128])
 #        print("Error    :",len([i for i in abs(out-gold) if i > 0.5])/len(out))
-        print("Final RSE:",rse(np.reshape(out_list,-1),np.reshape(gold_list,-1)))
-        return rse(np.reshape(out_list,-1),np.reshape(gold_list,-1))
+        result_bins = compute_errors_by_bins(np.reshape(out_list,-1),np.reshape(gold_list,-1),[(0,0.3),(0.3,0.7),(0.7,1)])
+
+        final_rse, final_mse = rse(np.reshape(out_list,-1),np.reshape(gold_list,-1))
+        print("Final RSE:", final_rse)
+        return final_rse,result_bins
 
 
 
@@ -369,7 +377,10 @@ def compute_errors_by_bins(pred_y:np.array, true_y:np.array, bins):
         indices = np.nonzero(np.logical_and(range_from <= true_y, true_y < range_to))
 
         if len(indices) > 0:
-            results.append(rse(pred_y[indices], true_y[indices]))
+            temp_rse, temp_mse = rse(pred_y[indices], true_y[indices])
+            results.append(temp_mse)
+            # print('data between ' + str(range_from) + ' ' + str(range_to))
+            # pprint.pprint(list(zip(pred_y[indices], true_y[indices])))
         else:
             print('empty bin in the range of ' + str(range_from) + ' ' + str(range_to))
 

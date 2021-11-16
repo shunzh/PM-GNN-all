@@ -104,7 +104,7 @@ class GIN(nn.Module):
     def forward(self, x, node_attr, edge_attr, adj, return_edge_code=False):
 
         # node_info = torch.cat([x, node_attr], 2)
-
+        # print("n_layers: ",self.n_layers)
         x_edge_codes = []
         for i in range(self.n_layers):
             if return_edge_code:
@@ -151,11 +151,13 @@ class PT_GNN(nn.Module):
         node_attr, edge_attr1, edge_attr2, adj, gnn_layers = input
 
         x = self.node_encoder(node_attr)
-
+        # print("gnn_layers: ", gnn_layers)
         for i in range(gnn_layers):
-            gnn_node_codes1 = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
+            x = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
+        gnn_node_codes1 = x
         for i in range(gnn_layers):
-            gnn_node_codes2 = self.gnn_encoder2(x, node_attr, edge_attr2, adj)
+            x = self.gnn_encoder2(x, node_attr, edge_attr2, adj)
+        gnn_node_codes2 = x
 
         gnn_node_codes=torch.cat([gnn_node_codes1,gnn_node_codes2],dim=2)
 

@@ -21,12 +21,12 @@ if __name__ == '__main__':
     parser.add_argument('-y_select', type=str, default='reg_vout', help='define target label')
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-n_epoch', type=int, default=100, help='number of training epoch')
-    parser.add_argument('-gnn_nodes', type=int, default=20, help='number of nodes in hidden layer in GNN')
+    parser.add_argument('-gnn_nodes', type=int, default=50, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=10, help='number of MLP predictor nodes at output of GNN')
-    parser.add_argument('-gnn_layers', type=int, default=3, help='number of layer')
+    parser.add_argument('-gnn_layers', type=int, default=4, help='number of layer')
     parser.add_argument('-model_index', type=int, default=1, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
-    parser.add_argument('-ncomp', type=int, default=3, help='# components')
+    parser.add_argument('-ncomp', type=int, default=5, help='# components')
     parser.add_argument('-train_rate', type=float, default=0.7, help='# components')
  
     parser.add_argument('-retrain', type=int, default=1, help='force retrain model')
@@ -135,16 +135,18 @@ if __name__ == '__main__':
             # save model and test data
             torch.save((model.state_dict(), test_loader), y_select+str(ncomp) + '.pt')
 
-        final_rse = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index, device=device,gnn_layers=args.gnn_layers)
+        final_rse, rse_bins = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index,
+                         device=device,gnn_layers=args.gnn_layers)
+        print("mse_bins", rse_bins)
 
         final_result.append([model_index, y_select, gnn_layers, gnn_nodes,
-                             min_loss,mean_loss,final_rse])
+                             min_loss,mean_loss,final_rse,rse_bins[0],rse_bins[1],rse_bins[2]])
 
 
     with open(output_file + '.csv','w') as f:
         csv_writer = csv.writer(f)
         header = ['model_index','y_select','gnn_layers','gnn_nodes',
-                  'min_loss','mean_loss','final_rse']
+                  'min_loss','mean_loss','final_rse','mse[0-0.3]','mse[0.3-0.7]','mse[0.7-1]']
         csv_writer.writerow(header)
 
         csv_writer.writerows(final_result)
