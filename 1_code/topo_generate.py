@@ -22,6 +22,9 @@ if __name__ == '__main__':
     parser.add_argument('-model_index', type=int, default=1, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
 
+    parser.add_argument('-eff_model', type=str, default='reg_eff.pt', help='eff model file name')
+    parser.add_argument('-vout_model', type=str, default='reg_vout.pt', help='vout model file name')
+
     args = parser.parse_args()
 
     batch_size = args.batch_size
@@ -29,9 +32,6 @@ if __name__ == '__main__':
     th = args.threshold
 
     # ======================== Data & Model ==========================#
-
-    test_loader = None
-
     nf_size = 4
     ef_size = 3
     nnode = 6
@@ -52,13 +52,6 @@ if __name__ == '__main__':
     vout_model = initialize_model(args.model_index, args.gnn_nodes, args.predictor_nodes, args.gnn_layers, nf_size, ef_size,
                              device)
     vout_model.load_state_dict(vout_model_state_dict)
-
-    """
-    r_model_state_dict, data_loader = torch.load('reg_reward.pt')
-    r_model = initialize_model(args.model_index, args.gnn_nodes, args.predictor_nodes, args.gnn_layers, nf_size, ef_size,
-                               device)
-    r_model.load_state_dict(r_model_state_dict)
-    """
 
     results = []
 
