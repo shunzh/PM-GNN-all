@@ -119,7 +119,7 @@ class Autopo(InMemoryDataset):
                 label = target_vout
 
             elif y_select == 'cls_buck':
-                # target_vout.append(float(json_file[item]["vout"] / 100))
+                #target_vout.append(float(json_file[item]["vout"] / 100))
                 temp = float(json_file[item]["vout"])
                 if temp < 30:
                     target_vout.append(0)

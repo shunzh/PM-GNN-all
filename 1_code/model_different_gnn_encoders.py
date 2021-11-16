@@ -150,14 +150,15 @@ class PT_GNN(nn.Module):
     def forward(self, input, return_edge_code=False):
         node_attr, edge_attr1, edge_attr2, adj, gnn_layers = input
 
-        x = self.node_encoder(node_attr)
+        x1 = self.node_encoder(node_attr)
         # print("gnn_layers: ", gnn_layers)
         for i in range(gnn_layers):
-            x = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
-        gnn_node_codes1 = x
+            x1 = self.gnn_encoder1(x1, node_attr, edge_attr1, adj)
+        gnn_node_codes1 = x1
+        x2 = self.node_encoder(node_attr)
         for i in range(gnn_layers):
-            x = self.gnn_encoder2(x, node_attr, edge_attr2, adj)
-        gnn_node_codes2 = x
+            x2 = self.gnn_encoder2(x2, node_attr, edge_attr2, adj)
+        gnn_node_codes2 = x2
 
         gnn_node_codes=torch.cat([gnn_node_codes1,gnn_node_codes2],dim=2)
 
@@ -165,7 +166,9 @@ class PT_GNN(nn.Module):
         # print("gnn_code", gnn_code.shape)
 
         x = self.lin1(gnn_code)
+        x = torch.tanh(x)
         x = self.lin2(x)
+        x = torch.tanh(x)
         pred = self.output(x)
 
         return torch.sigmoid(pred)
@@ -198,15 +201,18 @@ class Serial_GNN(nn.Module):
         node_attr, edge_attr1, edge_attr2, adj, gnn_layers = input
         x = self.node_encoder(node_attr)
         for i in range(gnn_layers):
-            x1 = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
+            x = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
         for i in range(gnn_layers):
-            gnn_node_codes = self.gnn_encoder2(x1, node_attr, edge_attr2, adj)
+            x = self.gnn_encoder2(x, node_attr, edge_attr2, adj)
 
+        gnn_node_codes = x
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]], 1)
         # print("gnn_code", gnn_code.shape)
 
         x = self.lin1(gnn_code)
+        x = torch.tanh(x)
         x = self.lin2(x)
+        x = torch.tanh(x)
         pred = self.output(x)
 
         return torch.sigmoid(pred)
@@ -254,7 +260,9 @@ class LOOP_GNN(nn.Module):
         # print("gnn_code", gnn_code.shape)
 
         x = self.lin1(gnn_code)
+        x = torch.tanh(x)
         x = self.lin2(x)
+        x = torch.tanh(x)
         pred = self.output(x)
 
         return torch.sigmoid(pred)

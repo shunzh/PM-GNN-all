@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('-gnn_layers', type=int, default=4, help='number of layer')
     parser.add_argument('-model_index', type=int, default=1, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
-    parser.add_argument('-ncomp', type=int, default=5, help='# components')
+    parser.add_argument('-ncomp', type=int, default=3, help='# components')
     parser.add_argument('-train_rate', type=float, default=0.7, help='# components')
  
     parser.add_argument('-retrain', type=int, default=1, help='force retrain model')
@@ -61,7 +61,9 @@ if __name__ == '__main__':
     weight_decay = args.weight_decay
     seedrange = args.seedrange
 
-    output_file = datetime.now().strftime('../result/' + '%Y-%m-%d-%H-%M-%S')
+    output_file = datetime.now().strftime('../../result/' + '%m-%d-%H-%M-%S' + y_select + '_' + str(model_index) + 'Mod_' + \
+                    str(gnn_layers) + 'layers_' + str(gnn_nodes) + 'nodes_' + \
+                      str(ncomp) + 'comp')
     final_result = []
 
 
@@ -107,7 +109,9 @@ if __name__ == '__main__':
         #print("model: ",model)
 
         postfix = str(ncomp) if device.type == 'cuda' else '_cpu'
-        pt_filename = y_select + postfix + '.pt'
+        pt_filename = y_select + postfix + 'model' + str(model_index) + \
+                    str(gnn_layers) + 'layers' + str(gnn_nodes) + 'nodes' + \
+                      str(ncomp) + 'comp' + '.pt'
 
 
 
@@ -133,7 +137,9 @@ if __name__ == '__main__':
 
 
             # save model and test data
-            torch.save((model.state_dict(), test_loader), y_select+str(ncomp) + '.pt')
+            torch.save((model.state_dict(), test_loader), y_select + '_' + str(model_index) + 'Mod_' + \
+                    str(gnn_layers) + 'layers_' + str(gnn_nodes) + 'nodes_' + \
+                      str(ncomp) + 'comp' + '.pt')
 
         final_rse, rse_bins = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index,
                          device=device,gnn_layers=args.gnn_layers)
