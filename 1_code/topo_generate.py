@@ -14,28 +14,24 @@ if __name__ == '__main__':
     parser.add_argument('-path', type=str, default="../0_rawdata", help='raw data path')
     parser.add_argument('-batch_size', type=int, default=32, help='batch size')
     parser.add_argument('-n_epoch', type=int, default=10, help='number of training epoch')
-    parser.add_argument('-gnn_nodes', type=int, default=100, help='number of nodes in hidden layer in GNN')
-    parser.add_argument('-predictor_nodes', type=int, default=100,
+    parser.add_argument('-gnn_nodes', type=int, default=50, help='number of nodes in hidden layer in GNN')
+    parser.add_argument('-predictor_nodes', type=int, default=10,
                         help='number of MLP predictor nodes at output of GNN')
-    parser.add_argument('-gnn_layers', type=int, default=3, help='number of layer')
+    parser.add_argument('-gnn_layers', type=int, default=4, help='number of layer')
     parser.add_argument('-model_index', type=int, default=1, help='model index')
-    parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
 
-    parser.add_argument('-eff_model', type=str, default='reg_eff.pt', help='eff model file name')
-    parser.add_argument('-vout_model', type=str, default='reg_vout.pt', help='vout model file name')
+    parser.add_argument('-eff_model', type=str, default='reg_eff3.pt', help='eff model file name')
+    parser.add_argument('-vout_model', type=str, default='reg_vout3.pt', help='vout model file name')
 
     args = parser.parse_args()
 
     batch_size = args.batch_size
     n_epoch = args.n_epoch
-    th = args.threshold
 
     # ======================== Data & Model ==========================#
     nf_size = 4
     ef_size = 3
-    nnode = 6
-    if args.model_index == 0:
-        ef_size = 6
+    nnode = 7
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
