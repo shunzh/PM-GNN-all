@@ -4,7 +4,6 @@ import torch
 from ml_utils import initialize_model, optimize_reward
 import argparse
 
-import numpy as np
 
 if __name__ == '__main__':
 
@@ -40,36 +39,24 @@ if __name__ == '__main__':
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    assert os.path.exists('reg_eff.pt')
-    assert os.path.exists('reg_vout.pt')
-
-    eff_model_state_dict, data_loader = torch.load('reg_eff.pt')
-    eff_model = initialize_model(args.model_index, args.gnn_nodes, args.predictor_nodes, args.gnn_layers, nf_size, ef_size,
-                             device)
+    eff_model_state_dict, data_loader = torch.load(args.eff_model)
+    eff_model = initialize_model(model_index=args.model_index,
+                                 gnn_nodes=args.gnn_nodes,
+                                 gnn_layers=args.gnn_layers,
+                                 pred_nodes=args.predictor_nodes,
+                                 nf_size=nf_size,
+                                 ef_size=ef_size,
+                                 device=device)
     eff_model.load_state_dict(eff_model_state_dict)
 
-    vout_model_state_dict, data_loader = torch.load('reg_vout.pt')
-    vout_model = initialize_model(args.model_index, args.gnn_nodes, args.predictor_nodes, args.gnn_layers, nf_size, ef_size,
-                             device)
+    vout_model_state_dict, data_loader = torch.load(args.vout_model)
+    vout_model = initialize_model(model_index=args.model_index,
+                                  gnn_nodes=args.gnn_nodes,
+                                  gnn_layers=args.gnn_layers,
+                                  pred_nodes=args.predictor_nodes,
+                                  nf_size=nf_size,
+                                  ef_size=ef_size,
+                                  device=device)
     vout_model.load_state_dict(vout_model_state_dict)
 
-    results = []
-
-    for seed in range(20):
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-
-        result = optimize_reward(data_loader, eff_model, vout_model, n_epoch, batch_size, nnode, args.model_index, False,device,th)
-        results.append(result)
-
-    results = np.array(results)
-    results_mean = results.mean(axis=0)
-    results_std = results.std(axis=0) / np.sqrt(results.shape[0])
-
-    print(results)
-    print(results_mean)
-    print(results_std)
-
-    np.savetxt('topo_gen_result_mean.csv', results_mean, delimiter=',', fmt='%.6f')
-    np.savetxt('topo_gen_result_std.csv', results_std, delimiter=',', fmt='%.6f')
+    print(optimize_reward(data_loader, eff_model, vout_model, nnode, args.model_index, device))
