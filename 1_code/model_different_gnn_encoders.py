@@ -139,7 +139,7 @@ class PT_GNN(nn.Module):
 
         self.lin1 = torch.nn.Linear(6 * nhid, 128)
         self.lin2 = torch.nn.Linear(128, 64)
-        self.output = torch.nn.Linear(64, 1)
+        self.output = torch.nn.Linear(64, args.output_size)
 
         self.node_encoder = nn.Sequential(
             # TODO Where does args.len_node_attr send to
@@ -189,7 +189,7 @@ class Serial_GNN(nn.Module):
 
         self.lin1 = torch.nn.Linear(3 * nhid, 128)
         self.lin2 = torch.nn.Linear(128, 64)
-        self.output = torch.nn.Linear(64, 1)
+        self.output = torch.nn.Linear(64, args.output_size)
 
         self.node_encoder = nn.Sequential(
             #TODO Where does args.len_node_attr send to
@@ -235,7 +235,7 @@ class LOOP_GNN(nn.Module):
 
         self.lin1 = torch.nn.Linear(3 * nhid, 128)
         self.lin2 = torch.nn.Linear(128, 64)
-        self.output = torch.nn.Linear(64, 1)
+        self.output = torch.nn.Linear(64, args.output_size)
 
         self.node_encoder = nn.Sequential(
             #TODO Where does args.len_node_attr send to

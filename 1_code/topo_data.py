@@ -114,6 +114,9 @@ class Autopo(InMemoryDataset):
             elif y_select == 'reg_reward':
                 label = target_rewards
 
+            elif y_select == 'reg_both':
+                label = [[float(json_file[item]["eff"]), float(json_file[item]["vout"] / 100)]]
+
             elif y_select == 'cls_boost':
                 target_vout.append(float(json_file[item]["vout"] > 110))
                 label = target_vout

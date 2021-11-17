@@ -105,7 +105,8 @@ if __name__ == '__main__':
                                  pred_nodes=args.predictor_nodes,
                                  nf_size=nf_size,
                                  ef_size=ef_size,
-                                 device=device)
+                                 device=device,
+                                 output_size=2 if y_select == 'reg_both' else 1)
         #print("model: ",model)
 
         postfix = str(ncomp) if device.type == 'cuda' else '_cpu'

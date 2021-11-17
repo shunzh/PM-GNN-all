@@ -40,7 +40,7 @@ def rse(y,yt):
     return rse,mse
 
 
-def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef_size,device):
+def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef_size, device, output_size=1):
     #初始化模型
     args = EasyDict()
     args.len_hidden = gnn_nodes
@@ -50,6 +50,7 @@ def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef
     args.gnn_layers = gnn_layers
     args.use_gpu = False
     args.dropout = 0
+    args.output_size = output_size
 
     if model_index == 1:
         model = PT_GNN(args).to(device)
@@ -211,9 +212,9 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
              out_list.extend(out)
 
              L=len(gold)
-             rse_result=rse(out,gold)
              np.set_printoptions(precision=2,suppress=True)
 #
+             """
              out_round=[int(i>0.8) for i in out]
              TP=0
              FN=0
@@ -228,6 +229,7 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
                      FP+=1
                  else:
                      TN+=1
+              """
 #             print(TP/(TP+FN),FP/(TN+FP))
 #             TPR+=TP/(TP+FN)
 #             FPR+=FP/(TN+FP)
