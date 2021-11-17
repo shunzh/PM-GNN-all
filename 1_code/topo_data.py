@@ -99,16 +99,14 @@ class Autopo(InMemoryDataset):
             vout = json_file[item]["vout"] / 100
             r = compute_reward(eff, vout)
 
-            #            target_eff.append(eff)
-            #            target_vout.append(vout)
+            target_eff.append(eff)
+            target_vout.append(vout)
             target_rewards.append(r)
 
             if y_select == 'reg_eff':
-                target_eff.append(float(json_file[item]["eff"]))
                 label = target_eff
 
             elif y_select == 'reg_vout':
-                target_vout.append(float(json_file[item]["vout"] / 100))
                 label = target_vout
 
             elif y_select == 'reg_reward':
@@ -118,7 +116,7 @@ class Autopo(InMemoryDataset):
                 label = [[float(json_file[item]["eff"]), float(json_file[item]["vout"] / 100)]]
 
             elif y_select == 'cls_boost':
-                target_vout.append(float(json_file[item]["vout"] > 110))
+                target_vout = [float(json_file[item]["vout"] > 110)]
                 label = target_vout
 
             elif y_select == 'cls_buck':

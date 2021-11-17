@@ -136,11 +136,10 @@ if __name__ == '__main__':
                           optimizer=optimizer,
                           gnn_layers=gnn_layers)
 
-
             # save model and test data
             torch.save((model.state_dict(), test_loader), y_select + '_' + str(model_index) + 'Mod_' + \
                     str(gnn_layers) + 'layers_' + str(gnn_nodes) + 'nodes_' + \
-                      str(ncomp) + 'comp' + '.pt')
+                      str(ncomp) + 'comp_seed' + str(seed) + '.pt')
 
         final_rse, rse_bins = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index,
                          device=device,gnn_layers=args.gnn_layers)

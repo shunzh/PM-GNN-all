@@ -154,3 +154,6 @@ Results
 data
 *.csv
 *.pt
+
+0_rawdata
+2_dataset

@@ -203,8 +203,10 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
              out=out.reshape(y.shape)
              assert(out.shape == y.shape)
              out=np.array([x for x in out])
-             gold=np.array(y.reshape(-1))
-             gold=np.array([x for x in gold])
+             # Shun: the following needs to be disabled for reg_both
+             # It shouldn't affect reg_eff, reg_vout, etc.
+             #gold=np.array(y.reshape(-1))
+             gold=np.array([x for x in y])
 
              gold_list.extend(gold)
              out_list.extend(out)
