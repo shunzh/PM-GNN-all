@@ -18,8 +18,6 @@ def evaluate_top_K(preds, ground_truth, k):
     # get the ones with the highest surrogate rewards
     top_k_indices = preds.argsort()[-k:]
 
-    print(len(preds), len(ground_truth))
-
     # the ground truth values of these candidates
     ground_truth_of_top_k = ground_truth[top_k_indices]
 
