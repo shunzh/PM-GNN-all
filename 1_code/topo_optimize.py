@@ -18,6 +18,8 @@ def evaluate_top_K(preds, ground_truth, k):
     # get the ones with the highest surrogate rewards
     top_k_indices = preds.argsort()[-k:]
 
+    print(len(preds), len(ground_truth))
+
     # the ground truth values of these candidates
     ground_truth_of_top_k = ground_truth[top_k_indices]
 
@@ -56,9 +58,10 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
     all_gnn_eff = []
     all_gnn_vout = []
 
-    k_list = [1, 10, 20, 30, 50, 100]
+    k_list = [1, 10, 20, 30, 50, 100, 200, 500]
 
     gnn_performs = {k: [] for k in k_list}
+    gnn_coverage = {k: [] for k in k_list}
 
     for data in test_loader:
         # load data in batches and compute their surrogate rewards
@@ -105,11 +108,13 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
         #out_list.extend(r)
 
     for k in k_list:
-        #gnn_perform = evaluate_top_K(gnn_rewards, sim_rewards, k)
-        gnn_perform = top_K_coverage_on_ground_truth(gnn_rewards, sim_rewards, k, 100)
-        gnn_performs[k].append(gnn_perform)
+        gnn_performs[k] = evaluate_top_K(gnn_rewards, sim_rewards, k)
+        gnn_coverage[k] = top_K_coverage_on_ground_truth(gnn_rewards, sim_rewards, k, k)
 
-    return gnn_performs
+    print('The highest ground-truth reward in the top-k surrogate-reward topologies.')
+    print(gnn_performs)
+    print('How much of the top-k ground-truth topologies are covered by the top-k surrogate-reward topologies.')
+    print(gnn_coverage)
 
 
 if __name__ == '__main__':
@@ -156,8 +161,8 @@ if __name__ == '__main__':
                                  output_size=2) # need to set output size of the network here
         model.load_state_dict(model_state_dict)
 
-        print(optimize_reward(test_loader=data_loader, eff_vout_model=model,
-                              num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device))
+        optimize_reward(test_loader=data_loader, eff_vout_model=model,
+                        num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
     else:
         vout_model_state_dict, data_loader = torch.load(args.vout_model)
         vout_model = initialize_model(model_index=args.model_index,
@@ -179,5 +184,5 @@ if __name__ == '__main__':
                                      device=device)
         eff_model.load_state_dict(eff_model_state_dict)
 
-        print(optimize_reward(test_loader=data_loader, eff_model=eff_model, vout_model=vout_model,
-                              num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device))
+        optimize_reward(test_loader=data_loader, eff_model=eff_model, vout_model=vout_model,
+                        num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
