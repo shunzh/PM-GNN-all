@@ -24,12 +24,15 @@ def evaluate_top_K(preds, ground_truth, k):
     # return the highest ground-truth value
     return max(ground_truth_of_top_k)
 
+
 def top_K_coverage_on_ground_truth(preds, ground_truth, k_pred, k_ground_truth):
     """
     Find the top k_pred topologies predicted by the surrogate model, find how out much of top k_ground_truth topologies
     they can cover.
     :return: the coverage ratio
     """
+    L = len(ground_truth)
+
     preds = np.array(preds)
     ground_truth = np.array(ground_truth)
 
@@ -42,7 +45,7 @@ def top_K_coverage_on_ground_truth(preds, ground_truth, k_pred, k_ground_truth):
 
 
 def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
-                    eff_model=None, vout_model=None, eff_vout_model=None):
+                    eff_model=None, vout_model=None, eff_vout_model=None, reward_model=None, cls_vout_model=None):
     """
     Find the optimal simulator reward of the topologies with the top-k surrogate rewards.
     """
@@ -81,8 +84,44 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
         n_batch_test = n_batch_test + 1
         if eff_vout_model is not None:
             # using a model that can predict both eff and vout
-            out = eff_vout_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device), gnn_layers)).cpu().detach().numpy()
+            out = eff_vout_model(input=(
+                node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
+                gnn_layers)).cpu().detach().numpy()
             gnn_eff, gnn_vout = out[:, 0], out[:, 1]
+
+        elif reward_model is not None:
+            out = reward_model(input=(
+                node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
+                gnn_layers)).cpu().detach().numpy()
+            all_sim_eff.extend(sim_eff)
+            all_sim_vout.extend(sim_vout)
+            sim_rewards.extend(compute_batch_reward(sim_eff, sim_vout))
+            gnn_rewards.extend(out[:, 0])
+
+            continue
+
+        elif cls_vout_model is not None:
+            eff = eff_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
+                                   gnn_layers)).cpu().detach().numpy()
+            vout = cls_vout_model(input=(
+                node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
+                gnn_layers)).cpu().detach().numpy()
+
+            gnn_eff = eff.squeeze(1)
+            gnn_vout = vout.squeeze(1)
+            all_sim_eff.extend(sim_eff)
+            all_sim_vout.extend(sim_vout)
+            all_gnn_eff.extend(gnn_eff)
+            all_gnn_vout.extend(gnn_vout)
+
+            tmp_gnn_rewards = []
+            for j in range(len(gnn_eff)):
+                tmp_gnn_rewards.append(gnn_eff[j] * gnn_vout[j])
+
+            sim_rewards.extend(compute_batch_reward(sim_eff, sim_vout))
+            gnn_rewards.extend(tmp_gnn_rewards)
+            continue
+
         elif model_index == 0:
             eff = eff_model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
             vout = vout_model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
@@ -90,8 +129,10 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
             gnn_eff = eff.squeeze(1)
             gnn_vout = vout.squeeze(1)
         else:
-            eff = eff_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device), gnn_layers)).cpu().detach().numpy()
-            vout = vout_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device), gnn_layers)).cpu().detach().numpy()
+            eff = eff_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
+                                   gnn_layers)).cpu().detach().numpy()
+            vout = vout_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
+                                     gnn_layers)).cpu().detach().numpy()
 
             gnn_eff = eff.squeeze(1)
             gnn_vout = vout.squeeze(1)
@@ -103,7 +144,7 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
 
         sim_rewards.extend(compute_batch_reward(sim_eff, sim_vout))
         gnn_rewards.extend(compute_batch_reward(gnn_eff, gnn_vout))
-        #out_list.extend(r)
+        # out_list.extend(r)
 
     for k in k_list:
         gnn_performs[k] = evaluate_top_K(gnn_rewards, sim_rewards, k)
@@ -132,6 +173,8 @@ if __name__ == '__main__':
     parser.add_argument('-eff_model', type=str, default=None, help='eff model file name')
     parser.add_argument('-vout_model', type=str, default=None, help='vout model file name')
     parser.add_argument('-eff_vout_model', type=str, default=None, help='file of model that predicts both eff and vout')
+    parser.add_argument('-reward_model', type=str, default=None, help='file of model that predicts both eff and vout')
+    parser.add_argument('-cls_vout_model', type=str, default=None, help='eff model file name')
 
     args = parser.parse_args()
 
@@ -156,10 +199,52 @@ if __name__ == '__main__':
                                  nf_size=nf_size,
                                  ef_size=ef_size,
                                  device=device,
-                                 output_size=2) # need to set output size of the network here
+                                 output_size=2)  # need to set output size of the network here
         model.load_state_dict(model_state_dict)
 
         optimize_reward(test_loader=data_loader, eff_vout_model=model,
+                        num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
+
+    elif args.reward_model is not None:
+        # if this argument is set, load one model that predicts both eff and vout
+        model_state_dict, data_loader = torch.load(args.reward_model)
+
+        model = initialize_model(model_index=args.model_index,
+                                 gnn_nodes=args.gnn_nodes,
+                                 gnn_layers=args.gnn_layers,
+                                 pred_nodes=args.predictor_nodes,
+                                 nf_size=nf_size,
+                                 ef_size=ef_size,
+                                 device=device,
+                                 output_size=1)  # need to set output size of the network here
+        model.load_state_dict(model_state_dict)
+
+        optimize_reward(test_loader=data_loader, reward_model=model,
+                        num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
+
+    elif args.cls_vout_model is not None:
+        # if this argument is set, load one model that predicts both eff and vout
+        cls_vout_model_state_dict, data_loader = torch.load(args.cls_vout_model)
+        cls_vout_model = initialize_model(model_index=args.model_index,
+                                          gnn_nodes=args.gnn_nodes,
+                                          gnn_layers=args.gnn_layers,
+                                          pred_nodes=args.predictor_nodes,
+                                          nf_size=nf_size,
+                                          ef_size=ef_size,
+                                          device=device)
+        cls_vout_model.load_state_dict(cls_vout_model_state_dict)
+
+        eff_model_state_dict, data_loader = torch.load(args.eff_model)
+        eff_model = initialize_model(model_index=args.model_index,
+                                     gnn_nodes=args.gnn_nodes,
+                                     gnn_layers=args.gnn_layers,
+                                     pred_nodes=args.predictor_nodes,
+                                     nf_size=nf_size,
+                                     ef_size=ef_size,
+                                     device=device)
+        eff_model.load_state_dict(eff_model_state_dict)
+
+        optimize_reward(test_loader=data_loader, eff_model=eff_model, cls_vout_model=cls_vout_model,
                         num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
     else:
         vout_model_state_dict, data_loader = torch.load(args.vout_model)
