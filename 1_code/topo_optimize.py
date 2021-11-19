@@ -24,6 +24,24 @@ def evaluate_top_K(preds, ground_truth, k):
     # return the highest ground-truth value
     return max(ground_truth_of_top_k)
 
+def evaluate_bottom_K(preds, ground_truth, k):
+    """
+    :param preds: a list of surrogate model predictions
+    :param ground_truth: a list of ground-truth values (e.g. by the simulator)
+    :return: the highest ground-truth value of the BOTTOM k topologies predicted by the surrogate model
+    """
+    preds = np.array(preds)
+    ground_truth = np.array(ground_truth)
+
+    # get the ones with the highest surrogate rewards
+    top_k_indices = preds.argsort()[:k]
+
+    # the ground truth values of these candidates
+    ground_truth_of_top_k = ground_truth[top_k_indices]
+
+    # return the highest ground-truth value
+    return max(ground_truth_of_top_k)
+
 def top_K_coverage_on_ground_truth(preds, ground_truth, k_pred, k_ground_truth):
     """
     Find the top k_pred topologies predicted by the surrogate model, find how out much of top k_ground_truth topologies
@@ -63,6 +81,7 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
 
    
     gnn_performs = {k: [] for k in k_list}
+    gnn_performs_bottom = {k: [] for k in k_list}
     gnn_coverage = {k: [] for k in k_list}
 
     for data in test_loader:
@@ -141,10 +160,13 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
 
     for k in k_list:
         gnn_performs[k] = evaluate_top_K(gnn_rewards, sim_rewards, k)
+        gnn_performs_bottom[k] = evaluate_bottom_K(gnn_rewards, sim_rewards, k)
         gnn_coverage[k] = top_K_coverage_on_ground_truth(gnn_rewards, sim_rewards, k, k)
 
     print('The highest ground-truth reward in the top-k surrogate-reward topologies.')
     print(gnn_performs)
+    print('The highest ground-truth reward in the BOTTOM-k surrogate-reward topologies.')
+    print(gnn_performs_bottom)
     print('How much of the top-k ground-truth topologies are covered by the top-k surrogate-reward topologies.')
     print(gnn_coverage)
 
