@@ -1,2 +1,0 @@
-rm -r ../2_dataset/*
-python3 train_test.py
