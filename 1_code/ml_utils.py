@@ -16,6 +16,8 @@ def rse(y,yt):
 
     assert(y.shape==yt.shape)
 
+    if len(y)==0:
+        return 0,0
     var=0
     m_yt=yt.mean()
 #    print(yt,m_yt)
@@ -238,7 +240,8 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
 #        print("Predicted:",out[0:128])
 #        print("True     :",gold[0:128])
 #        print("Error    :",len([i for i in abs(out-gold) if i > 0.5])/len(out))
-        result_bins = compute_errors_by_bins(np.reshape(out_list,-1),np.reshape(gold_list,-1),[(0,0.3),(0.3,0.7),(0.7,1)])
+#        print(gold_list)
+        result_bins = compute_errors_by_bins(np.reshape(out_list,-1),np.reshape(gold_list,-1),[(-0.1,0.2),(0.2,0.4),(0.4,0.6),(0.6,0.8),(0.8,1.1)])
 
         final_rse, final_mse = rse(np.reshape(out_list,-1),np.reshape(gold_list,-1))
         print("Final RSE:", final_rse)
@@ -262,7 +265,7 @@ def compute_errors_by_bins(pred_y:np.array, true_y:np.array, bins):
 
         if len(indices) > 0:
             temp_rse, temp_mse = rse(pred_y[indices], true_y[indices])
-            results.append(temp_mse)
+            results.append(math.sqrt(temp_mse))
             # print('data between ' + str(range_from) + ' ' + str(range_to))
             # pprint.pprint(list(zip(pred_y[indices], true_y[indices])))
         else:

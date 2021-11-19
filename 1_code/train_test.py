@@ -39,7 +39,7 @@ if __name__ == '__main__':
 #----------------------------------------------------------------------------------------------------#
 
     args = parser.parse_args()
-    print("args: ",args)
+    print("\nargs: ",args)
 
 
     ncomp=args.ncomp
@@ -55,15 +55,12 @@ if __name__ == '__main__':
     model_index=args.model_index
     retrain=args.retrain
 
-    print(retrain)
 
     lr = args.lr
     weight_decay = args.weight_decay
     seedrange = args.seedrange
 
-    output_file = datetime.now().strftime('../../result/' + '%m-%d-%H-%M-%S' + y_select + '_' + str(model_index) + 'Mod_' + \
-                    str(gnn_layers) + 'layers_' + str(gnn_nodes) + 'nodes_' + \
-                      str(ncomp) + 'comp')
+    output_file = datetime.now().strftime(y_select + '-'  + str(ncomp))
     final_result = []
 
 
@@ -71,11 +68,15 @@ if __name__ == '__main__':
 
     dataset = Autopo(data_folder,path,y_select,ncomp)
 
-    if y_select=='cls_buck' or y_select == 'reg_vout':
-                print('imbalance')
-                train_loader, val_loader, test_loader = split_imbalance_data(dataset, batch_size,train_rate,0.1,0.2)
+    print('\n # data point:\n', len(dataset))
+
+    if y_select=='cls_buck':
+                train_loader, val_loader, test_loader = split_imbalance_data_cls(dataset, batch_size,train_rate,0.1,0.1)
+    elif y_select=='reg_reward':
+                 train_loader, val_loader, test_loader = split_imbalance_data_reward(dataset, batch_size,train_rate,0.1,0.1)
+ 
     else:
-                train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size,train_rate,0.1,0.2)
+                train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size,train_rate,0.1,0.1)
 
     # # set random seed for training
     # np.random.seed(args.seed)
@@ -98,6 +99,7 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         data = dataset[0].to(device)
         print("data: ", data)
+        print("data size:", len(data))
 
         model = initialize_model(model_index=args.model_index,
                                  gnn_nodes=args.gnn_nodes,
@@ -110,9 +112,11 @@ if __name__ == '__main__':
         #print("model: ",model)
 
         postfix = str(ncomp) if device.type == 'cuda' else '_cpu'
-        pt_filename = y_select + postfix + 'model' + str(model_index) + \
-                    str(gnn_layers) + 'layers' + str(gnn_nodes) + 'nodes' + \
-                      str(ncomp) + 'comp' + '.pt'
+#        pt_filename = y_select + postfix + 'model' + str(model_index) + \
+#                    str(gnn_layers) + 'layers' + str(gnn_nodes) + 'nodes' + \
+#                      str(ncomp) + 'comp' + '.pt'
+        pt_filename = y_select + '-' + str(model_index) + '-' + str(ncomp) + '.pt'
+
 
 
 
@@ -137,9 +141,7 @@ if __name__ == '__main__':
                           gnn_layers=gnn_layers)
 
             # save model and test data
-            torch.save((model.state_dict(), test_loader), y_select + '_' + str(model_index) + 'Mod_' + \
-                    str(gnn_layers) + 'layers_' + str(gnn_nodes) + 'nodes_' + \
-                      str(ncomp) + 'comp_seed_' + str(seed) + '.pt')
+            torch.save((model.state_dict(), test_loader), './pt/'+y_select + '-' + str(seed) +  '-' + str(ncomp) + '.pt')
 
         final_rse, rse_bins = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index,
                          device=device,gnn_layers=args.gnn_layers)
@@ -149,7 +151,7 @@ if __name__ == '__main__':
                              min_loss,mean_loss,final_rse,rse_bins[0],rse_bins[1],rse_bins[2]])
 
 
-    with open(output_file + '.csv','w') as f:
+    with open('./log/result-'+output_file + '.csv','w') as f:
         csv_writer = csv.writer(f)
         header = ['model_index','n_comp','y_select','gnn_layers','gnn_nodes',
                   'min_loss','mean_loss','final_rse','mse[0-0.3]','mse[0.3-0.7]','mse[0.7-1]']

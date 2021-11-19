@@ -81,6 +81,7 @@ class Autopo(InMemoryDataset):
             target_vout = []
             target_eff = []
             target_rewards = []
+            target_cls = []
 
             analytic_vout = []
             analytic_eff = []
@@ -101,7 +102,9 @@ class Autopo(InMemoryDataset):
 
             target_eff.append(eff)
             target_vout.append(vout)
-            target_rewards.append(r)
+            target_rewards.append(r)                
+            target_cls.append(float(35<json_file[item]["vout"]<65))
+
 
             if y_select == 'reg_eff':
                 label = target_eff
@@ -112,26 +115,12 @@ class Autopo(InMemoryDataset):
             elif y_select == 'reg_reward':
                 label = target_rewards
 
-            elif y_select == 'reg_both':
-                label = [[eff, vout]]
-
-            elif y_select == 'cls_boost':
-                target_vout = [float(json_file[item]["vout"] > 110)]
-                label = target_vout
+#            elif y_select == 'cls_boost':
+#                target_vout.append(float(json_file[item]["vout"] > 110))
+#                label = target_vout
 
             elif y_select == 'cls_buck':
-                target_vout = []
-                #target_vout.append(float(json_file[item]["vout"] / 100))
-                temp = float(json_file[item]["vout"])
-                if temp < 30:
-                    target_vout.append(0)
-                elif temp < 50:
-                    target_vout.append((temp-30)/20)
-                elif temp < 70:
-                    target_vout.append((70-temp)/20)
-                else:
-                    target_vout.append(0)
-                label = target_vout
+                label = target_cls
 
             else:
                 print("Wrong select input")
@@ -406,7 +395,7 @@ def split_balance_data(dataset, batch_size, rtrain, rval, rtest):
     return train_loader, val_loader, test_loader
 
 
-def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
+def split_imbalance_data_cls(dataset, batch_size, rtrain, rval, rtest):
     train_ratio = rtrain
     val_ratio = rval
     test_ratio = rtest
@@ -424,87 +413,117 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
         np.random.seed(random_seed)
         np.random.shuffle(indices)
 
+    n_test=int(dataset_size * test_ratio)
+
+    test_indices = indices[0:n_test]
+
     ind_positive = []
     ind_negative = []
     ind = 0
 
+    ind_positive=[]
+    ind_negative=[]
+
     for data in dataset:
-        # print(data)
-        # print("1:", data['analytic_vout'].tolist())
-        # print("2:", data['sim_vout'].tolist())
         flag_cls = data['label'].tolist()[0]
-        # print("flag_cls",flag_cls)
-        if 0.3 < flag_cls < 0.7:
+
+        if ind in test_indices:
+            ind += 1
+            continue
+
+        if flag_cls > 0.5:
             ind_positive.append(ind)
-            # print(ind_positive)
         else:
             ind_negative.append(ind)
-        #通过判断eff是否在0.3-0.7
-        #判断vout是否在0.1-0.9之间
         ind += 1
-    indices_new = []
 
-    # for i in range(int(len(ind_negative) / len(ind_positive))):
-    #     indices_new.extend(ind_positive)
+    indices_new=ind_negative
 
-    # for i in range(5-int(len(ind_positive) / len(ind_negative)*100)):
-    #     print(5-int(len(ind_positive) / len(ind_negative)*100))
-    #     indices_new.extend(ind_positive)
-
-    A = len(ind_positive)
-    B = len(ind_negative)
-    a = B/A/4 - 1
-    i = int(a*A)
-    positive_percentage = A/(A+B)
-    # a = Decimal(a).quantize(Decimal('0.0'))
-    print("percent: ", positive_percentage)
-    print("A", A)
-    print("B", B)
-    print("range", round((B - 4 * A) / 4))
-
-    if positive_percentage > 0.2:
-        indices_new.extend(list(np.random.choice(ind_positive, int((-a) * A))))
-        indices_new.extend(ind_negative)
-    else:
-        if a < 0.5:
-            indices_new.extend(list(np.random.choice(ind_positive,int(a*A))))
-        else:
-            for i in range(round(a)):
-                indices_new.extend(ind_positive)
-            indices_new.extend(ind_positive)
-            indices_new.extend(ind_negative)
-    # for i in range(len(list(np.random.choice(ind_positive, int(a * A))))):
-    #     indices_new.append(list(np.random.choice(ind_positive, int(a * A)))[i])
-
-    #indices_new.extend(list(np.random.choice(ind_positive, i)))
-
-
-    print("new positve percentage: ",(len(indices_new)-dataset_size)/len(indices_new))
-
-
-
+    for i in range(int(len(ind_negative)/len(ind_positive))):
+         indices_new.extend(ind_positive)
+ 
     dataset_size_new = len(indices_new)
-    # print("dataset_size_new: ", dataset_size_new)
-    # print("dataset_size: ", dataset_size)
 
     n_train = int(dataset_size_new * train_ratio)
     n_val = int(dataset_size_new * val_ratio)
-    n_test = int(dataset_size_new * test_ratio)
-    # print("n_train", type(n_train))
-    # print("n_val", n_val)
-    # print("n_test", n_test)
 
     if shuffle_dataset:
         np.random.seed(random_seed)
         np.random.shuffle(indices_new)
 
-    train_indices, val_indices, test_indices = indices_new[:n_train], indices_new[n_train + 1:n_train + n_val], \
-                                               indices_new[n_train + n_val + 1:n_train + n_val + n_test]
-    # print("train_indeces: ",type(train_indices))
-    # print("valid_indeces: ",type(val_indices))
-    # print("test_indeces: ", len(test_indices))
+    train_indices, val_indices = indices_new[0:n_train], indices_new[n_train + 1:n_train + n_val]
 
-    # Creating PT data samplers and loaders:
+    train_sampler = SubsetRandomSampler(train_indices)
+    valid_sampler = SubsetRandomSampler(val_indices)
+    test_sampler = SubsetRandomSampler(test_indices)
+
+    train_loader = DataLoader(
+        dataset, batch_size=batch_size, sampler=train_sampler)
+    val_loader = DataLoader(
+        dataset, batch_size=batch_size, sampler=valid_sampler)
+    test_loader = DataLoader(
+        dataset, batch_size=batch_size, sampler=test_sampler)
+
+    return train_loader, val_loader, test_loader
+
+def split_imbalance_data_reward(dataset, batch_size, rtrain, rval, rtest):
+    train_ratio = rtrain
+    val_ratio = rval
+    test_ratio = rtest
+    # print("train_ratio", train_ratio)
+    # print("val_ratio", val_ratio)
+    # print("test_ratio", test_ratio)
+
+    shuffle_dataset = True
+    random_seed = 42
+
+    dataset_size = len(dataset)
+    indices = list(range(dataset_size))
+
+    if shuffle_dataset:
+        np.random.seed(random_seed)
+        np.random.shuffle(indices)
+
+    n_test=int(dataset_size * test_ratio)
+
+    test_indices = indices[0:n_test]
+
+    ind_positive = []
+    ind_negative = []
+    ind = 0
+
+    ind_positive=[]
+    ind_negative=[]
+
+    for data in dataset:
+        flag_cls = data['label'].tolist()[0]
+
+        if ind in test_indices:
+            ind += 1
+            continue
+
+        if flag_cls > 0.3:
+            ind_positive.append(ind)
+        else:
+            ind_negative.append(ind)
+        ind += 1
+
+    indices_new=ind_negative
+
+    for i in range(int(len(ind_negative)/len(ind_positive))):
+         indices_new.extend(ind_positive)
+ 
+    dataset_size_new = len(indices_new)
+
+    n_train = int(dataset_size_new * train_ratio)
+    n_val = int(dataset_size_new * val_ratio)
+
+    if shuffle_dataset:
+        np.random.seed(random_seed)
+        np.random.shuffle(indices_new)
+
+    train_indices, val_indices = indices_new[0:n_train], indices_new[n_train + 1:n_train + n_val]
+
     train_sampler = SubsetRandomSampler(train_indices)
     valid_sampler = SubsetRandomSampler(val_indices)
     test_sampler = SubsetRandomSampler(test_indices)
