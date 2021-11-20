@@ -17,4 +17,8 @@ def compute_piecewise_linear_reward(eff, vout):
 
 compute_reward = compute_smooth_reward
 
-compute_batch_reward = lambda effs, vouts: np.array([compute_reward(e, v) for e, v in zip(effs, vouts)])
+
+def compute_batch_reward(effs, vouts):
+    assert len(effs) == len(vouts)
+
+    return np.array([compute_reward(e, v) for e, v in zip(effs, vouts)])
