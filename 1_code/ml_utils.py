@@ -9,6 +9,7 @@ import math
 from easydict import EasyDict
 
 from model_different_gnn_encoders import  PT_GNN, Serial_GNN, LOOP_GNN
+from old_model import PT_GNN as Old_PT_GNN
 import copy
 
 
@@ -60,6 +61,9 @@ def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef
         return model
     elif model_index == 3:
         model = LOOP_GNN(args).to(device)
+        return model
+    elif model_index == 4:
+        model = Old_PT_GNN(args).to(device)
         return model
     else:
         assert ("Invalid model")
