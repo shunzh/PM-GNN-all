@@ -162,7 +162,8 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
                     epoch_min=epoch
                     min_val_loss=val_loss_ave
 
-                 if epoch-epoch_min>5:
+                 #if epoch-epoch_min>5:
+                 if epoch == n_epoch - 1:
                     #print("training loss:",train_perform)
                     print("training loss minimum value:", min(train_perform))
                     print("training loss average value:", np.mean(train_perform))
