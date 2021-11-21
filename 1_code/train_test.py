@@ -21,10 +21,10 @@ if __name__ == '__main__':
     parser.add_argument('-y_select', type=str, default='reg_vout', help='define target label')
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-n_epoch', type=int, default=100, help='number of training epoch')
-    parser.add_argument('-gnn_nodes', type=int, default=20, help='number of nodes in hidden layer in GNN')
+    parser.add_argument('-gnn_nodes', type=int, default=40, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=10, help='number of MLP predictor nodes at output of GNN')
-    parser.add_argument('-gnn_layers', type=int, default=2, help='number of layer')
-    parser.add_argument('-model_index', type=int, default=2, help='model index')
+    parser.add_argument('-gnn_layers', type=int, default=4, help='number of layer')
+    parser.add_argument('-model_index', type=int, default=3, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
     parser.add_argument('-ncomp', type=int, default=3, help='# components')
     parser.add_argument('-train_rate', type=float, default=0.7, help='# components')
@@ -71,9 +71,9 @@ if __name__ == '__main__':
     print('\n # data point:\n', len(dataset))
 
     if y_select=='cls_buck':
-                train_loader, val_loader, test_loader = split_imbalance_data_cls(dataset, batch_size,train_rate,0.1,0.1)
+                train_loader, val_loader, test_loader = split_imbalance_data_cls(dataset, batch_size,train_rate,0.05,0.05)
     elif y_select=='reg_reward':
-                 train_loader, val_loader, test_loader = split_imbalance_data_reward(dataset, batch_size,train_rate,0.1,0.1)
+                 train_loader, val_loader, test_loader = split_imbalance_data_reward(dataset, batch_size,train_rate,0.04,0.01)
  
     else:
                 train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size,train_rate,0.1,0.1)
@@ -99,7 +99,7 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         data = dataset[0].to(device)
         print("data: ", data)
-        print("data size:", len(data))
+#        print("data size:", data.size())
 
         model = initialize_model(model_index=args.model_index,
                                  gnn_nodes=args.gnn_nodes,

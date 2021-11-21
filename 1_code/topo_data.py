@@ -55,9 +55,21 @@ class Autopo(InMemoryDataset):
 
         nn = 0
 
+        reward_max=-1
+
         for item in json_file:
 
+            
+#            print(item)
+            topo_id=str(item[-8:-2])
+            param_id=str(item[-1])
+            print(item,topo_id,param_id)
+#            print(topo_id)
+#            print(param_id)
+ 
             file_name = item
+
+            r=0
 
             list_of_edge = json_file[item]["list_of_edge"]
             list_of_node = json_file[item]["list_of_node"]
@@ -66,7 +78,8 @@ class Autopo(InMemoryDataset):
             node_attr = json_file[item]["node_attr"]
             edge_attr0 = json_file[item]["edge_attr0"]
 
-            nn = nn + 1
+#            nn = nn + 1
+
             # print(nn)
             # if nn>2:
             #    break
@@ -75,8 +88,8 @@ class Autopo(InMemoryDataset):
             # print(list_of_node)
             # print(list_of_edge)
 
-            if json_file[item]["vout"] / 100 > 1 or json_file[item]["vout"] / 100 < 0:
-                continue
+#            if json_file[item]["vout"] / 100 > 1 or json_file[item]["vout"] / 100 < 0:
+#                continue
 
             target_vout = []
             target_eff = []
@@ -97,12 +110,13 @@ class Autopo(InMemoryDataset):
             label_analytic_vout = analytic_vout
 
             eff = json_file[item]["eff"]
-            vout = json_file[item]["vout"] / 100
-            r = compute_reward(eff, vout)
-
+            vout = abs(json_file[item]["vout"] / 100)
+            reward = compute_reward(eff, vout) 
+            
+ 
             target_eff.append(eff)
             target_vout.append(vout)
-            target_rewards.append(r)                
+            target_rewards.append(reward)                
             target_cls.append(float(35<json_file[item]["vout"]<65))
 
 
@@ -260,7 +274,6 @@ class Autopo(InMemoryDataset):
             edge_index = []
             edge_index = [edge_start, edge_end]
 
-            tmp[file_name] = {}
 
             node_feature_size = len(empty_node)
             edge_feature_size = len(empty_edge)
@@ -299,18 +312,43 @@ class Autopo(InMemoryDataset):
                 for j in range(max_nodes):
                     if not all(v == 0 for v in edge_attr1_padded[i, j]):
                         adjacent_matrix[i, j] = 1
+            if param_id=='0':
+                reward_max=-1
 
-            tmp[file_name]['node_attr'] = node_attr_padded
-            tmp[file_name]['edge0_attr'] = edge_attr0_padded
-            tmp[file_name]['edge1_attr'] = edge_attr1_padded
-            tmp[file_name]['edge2_attr'] = edge_attr2_padded
-            tmp[file_name]['adjacent_matrix'] = adjacent_matrix
-            tmp[file_name]['label'] = label
+            if param_id=='2':
 
-            tmp[file_name]['sim_eff'] = target_eff
-            tmp[file_name]['sim_vout'] = target_vout
-            tmp[file_name]['analytic_eff'] = label_analytic_eff
-            tmp[file_name]['analytic_vout'] = label_analytic_vout
+                tmp[topo_id]={}
+                tmp[topo_id]['node_attr'] = node_attr_padded
+                tmp[topo_id]['edge0_attr'] = edge_attr0_padded
+                tmp[topo_id]['edge1_attr'] = edge_attr1_padded
+                tmp[topo_id]['edge2_attr'] = edge_attr2_padded
+                tmp[topo_id]['adjacent_matrix'] = adjacent_matrix
+
+#            print(topo_id,param_id,reward, reward_max,target_rewards)
+
+            if reward>=reward_max:
+                label_max=target_rewards
+                reward_max=reward
+                vout_max=target_vout
+                eff_max=target_eff
+
+
+            if param_id=='4' and topo_id in tmp.keys():
+
+                label=[]
+                label.append(reward_max)
+                print(label,nn)
+                nn=nn+1
+                tmp[topo_id]['label'] = label 
+                tmp[topo_id]['sim_eff'] = eff_max
+                tmp[topo_id]['sim_vout'] = vout_max
+                tmp[topo_id]['analytic_eff'] = label_analytic_eff
+                tmp[topo_id]['analytic_vout'] = label_analytic_vout
+                reward_max=-1
+
+            else:
+
+                continue
 
         return tmp
 
@@ -323,24 +361,30 @@ class Autopo(InMemoryDataset):
         tmp = self.get_tmp()
         data_list = []
         for fn in tmp:
-            node_attr = torch.tensor(tmp[fn]["node_attr"], dtype=torch.float)
-            edge0_attr = torch.tensor(tmp[fn]["edge0_attr"], dtype=torch.float)
-            edge1_attr = torch.tensor(tmp[fn]["edge1_attr"], dtype=torch.float)
-            edge2_attr = torch.tensor(tmp[fn]["edge2_attr"], dtype=torch.float)
-            adj = torch.tensor(tmp[fn]["adjacent_matrix"], dtype=torch.float)
-            label = torch.tensor(tmp[fn]["label"], dtype=torch.float)
-            analytic_eff = torch.tensor(tmp[fn]["analytic_eff"], dtype=torch.float)
-            analytic_vout = torch.tensor(tmp[fn]["analytic_vout"], dtype=torch.float)
-            sim_eff = torch.tensor(tmp[fn]["sim_eff"], dtype=torch.float)
-            sim_vout = torch.tensor(tmp[fn]["sim_vout"], dtype=torch.float)
-
-            #            print(node_attr)
-            #            print(edge1_attr)
-            data = Data(node_attr=node_attr, edge0_attr=edge0_attr, edge1_attr=edge1_attr, edge2_attr=edge2_attr,
-                        adj=adj, label=label,
-                        analytic_eff=analytic_eff, analytic_vout=analytic_vout,
-                        sim_eff=sim_eff, sim_vout=sim_vout)
-            data_list.append(data)
+              if 'label' not in tmp[fn].keys():
+                  continue
+              print(count)
+              count=count+1
+              
+              node_attr = torch.tensor(tmp[fn]["node_attr"], dtype=torch.float)
+              label = torch.tensor(tmp[fn]["label"], dtype=torch.float)
+ 
+              edge0_attr = torch.tensor(tmp[fn]["edge0_attr"], dtype=torch.float)
+              edge1_attr = torch.tensor(tmp[fn]["edge1_attr"], dtype=torch.float)
+              edge2_attr = torch.tensor(tmp[fn]["edge2_attr"], dtype=torch.float)
+              adj = torch.tensor(tmp[fn]["adjacent_matrix"], dtype=torch.float)
+              analytic_eff = torch.tensor(tmp[fn]["analytic_eff"], dtype=torch.float)
+              analytic_vout = torch.tensor(tmp[fn]["analytic_vout"], dtype=torch.float)
+              sim_eff = torch.tensor(tmp[fn]["sim_eff"], dtype=torch.float)
+              sim_vout = torch.tensor(tmp[fn]["sim_vout"], dtype=torch.float)
+#              print(fn,label)
+              #            print(node_attr)
+              #            print(edge1_attr)
+              data = Data(node_attr=node_attr, edge0_attr=edge0_attr, edge1_attr=edge1_attr, edge2_attr=edge2_attr,
+                          adj=adj, label=label,
+                          analytic_eff=analytic_eff, analytic_vout=analytic_vout,
+                          sim_eff=sim_eff, sim_vout=sim_vout)
+              data_list.append(data)
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]
@@ -431,7 +475,7 @@ def split_imbalance_data_cls(dataset, batch_size, rtrain, rval, rtest):
             ind += 1
             continue
 
-        if flag_cls > 0.5:
+        if flag_cls > 0.3:
             ind_positive.append(ind)
         else:
             ind_negative.append(ind)
@@ -451,7 +495,7 @@ def split_imbalance_data_cls(dataset, batch_size, rtrain, rval, rtest):
         np.random.seed(random_seed)
         np.random.shuffle(indices_new)
 
-    train_indices, val_indices = indices_new[0:n_train], indices_new[n_train + 1:n_train + n_val]
+    train_indices, val_indices, test_indices = indices_new[0:n_train], indices_new[n_train + 1:n_train + n_val], indices_new[0:n_train + n_val]
 
     train_sampler = SubsetRandomSampler(train_indices)
     valid_sampler = SubsetRandomSampler(val_indices)
@@ -522,7 +566,9 @@ def split_imbalance_data_reward(dataset, batch_size, rtrain, rval, rtest):
         np.random.seed(random_seed)
         np.random.shuffle(indices_new)
 
+#    train_indices, val_indices, test_indices = indices_new[0:n_train], indices_new[n_train + 1:n_train + n_val], indices_new[0:n_train + n_val]
     train_indices, val_indices = indices_new[0:n_train], indices_new[n_train + 1:n_train + n_val]
+
 
     train_sampler = SubsetRandomSampler(train_indices)
     valid_sampler = SubsetRandomSampler(val_indices)
