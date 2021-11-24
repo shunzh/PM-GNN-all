@@ -63,6 +63,7 @@ def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef
         model = LOOP_GNN(args).to(device)
         return model
     elif model_index == 4:
+        # PT_GNN used in DATE submission
         model = Old_PT_GNN(args).to(device)
         return model
     else:

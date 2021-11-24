@@ -1,8 +1,6 @@
 import csv
 import os
 from datetime import datetime
-import numpy as np
-import torch
 from torch.nn import Linear, MSELoss
 
 from topo_data import *
@@ -77,11 +75,6 @@ if __name__ == '__main__':
  
     else:
                 train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size,train_rate,0.1,0.1)
-
-    # # set random seed for training
-    # np.random.seed(args.seed)
-    # torch.manual_seed(args.seed)
-    # torch.cuda.manual_seed(args.seed)
 
     for seed in range(seedrange):
         # set random seed for training

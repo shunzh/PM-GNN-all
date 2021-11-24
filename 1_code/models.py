@@ -255,7 +255,7 @@ class LOOP_GNN(nn.Module):
             x1 = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
             x = self.gnn_encoder2(x1, node_attr, edge_attr2, adj)
 
-        gnn_node_codes = gnn_node_codes = torch.cat([x1,x],dim=2)
+        gnn_node_codes = torch.cat([x1,x],dim=2)
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]], 1)
         # print("gnn_code", gnn_code.shape)
 
