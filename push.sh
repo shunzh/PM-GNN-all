@@ -1,1 +1,1 @@
-rsync -avzh --exclude '.git' . serv1:~/PM-GNN-all/
+rsync -avzh --exclude '.git' --exclude '*.pt' . serv1:~/PM-GNN-all/
