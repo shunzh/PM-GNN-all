@@ -3,18 +3,9 @@ For example, run the following to generate eff and vout models.
 python train_test.py -y_select reg_eff -ncomp 5 -gnn_nodes 40 -gnn_layers 4 -model_index 3
 python train_test.py -y_select reg_vout -ncomp 5 -gnn_nodes 40 -gnn_layers 4 -model_index 3
 ```
-Do top-k evaluation by calling topo_optimize.py. Pass the name of the trained models and the model configuration.
-```shell
-python model_analysis.py -eff_model reg_eff_3Mod_4layers_40nodes_5comp_seed_0.pt -vout_model reg_vout_3Mod_4layers_40nodes_5comp_seed_0.pt -gnn_nodes 40 -gnn_layers 4 -model_index 3
-```
+The pt files are saved as `pt/[y_select]_[random seed]_[number of components].pt`.
 
-## Predict eff and vout simultaneously
-
-To train the model,
+Do top-k evaluation by running model_analysis.py. Pass the name of the trained models and the model configuration.
 ```shell
-python train_test.py -y_select reg_both -ncomp 5 -gnn_nodes 40 -gnn_layers 4 -model_index 3
-```
-Top-k evaluation of the model,
-```shell
-python model_analysis.py -eff_vout_model reg_both_3Mod_4layers_40nodes_5comp_seed_0.pt -gnn_nodes 40 -gnn_layers 4 -model_index 3
+python model_analysis.py -eff_model pt/reg_eff-0-5.pt -vout_model pt/reg_vout-0-5.pt -gnn_nodes 40 -gnn_layers 4 -model_index 3
 ```
