@@ -62,7 +62,7 @@ def evaluate_bottom_K(preds, ground_truth, k, threshold=0.4):
              'precision': len([x for x in ground_truth_of_bottom_k if x < threshold]) / k,
              # out of all of topologies BELOW the threshold, how many of them are in the BOTTOM-k topologies
              'recall': len([x for x in ground_truth_of_bottom_k if x < threshold]) /
-                       len([x for x in ground_truth if x < threshold])
+                       (len([x for x in ground_truth if x < threshold]) + 1e-3)
             }
 
     return stats
