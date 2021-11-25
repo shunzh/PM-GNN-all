@@ -8,8 +8,8 @@ import math
 
 from easydict import EasyDict
 
-from model_different_gnn_encoders import  PT_GNN, Serial_GNN, LOOP_GNN
-from old_model import PT_GNN as Old_PT_GNN
+from models import  PT_GNN, Serial_GNN, LOOP_GNN
+from old_models import PT_GNN as Old_PT_GNN
 import copy
 
 

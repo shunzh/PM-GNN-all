@@ -6,41 +6,66 @@ import argparse
 from reward_fn import compute_batch_reward
 
 
-def evaluate_top_K(preds, ground_truth, k):
+def evaluate_top_K(preds, ground_truth, k, threshold=0.6):
     """
     :param preds: a list of surrogate model predictions
     :param ground_truth: a list of ground-truth values (e.g. by the simulator)
-    :return: the highest ground-truth value of the top k topologies predicted by the surrogate model
+    :return: statistical analysis of the top-k topologies
+
+            {'max': the maximum true reward in the top-k topologies predicted by the surrogate model
+             'mean': the mean value of above,
+             'std': the standard deviation of above,
+             'precision': out of all of top-k topologies, how many of them are above the threshold,
+             'recall': out of all of topologies above the threshold, how many of them are in the top-k topologies
+            }
     """
     preds = np.array(preds)
     ground_truth = np.array(ground_truth)
 
-    # get the ones with the highest surrogate rewards
+    # evaluate top-k
     top_k_indices = preds.argsort()[-k:]
 
     # the ground truth values of these candidates
     ground_truth_of_top_k = ground_truth[top_k_indices]
 
-    # return the highest ground-truth value
-    return max(ground_truth_of_top_k)
+    stats = {'max': max(ground_truth_of_top_k),
+             'mean': np.mean(ground_truth_of_top_k),
+             'std': np.std(ground_truth_of_top_k),
+             # out of all of top-k topologies, how many of them are above the threshold
+             'precision': len([x for x in ground_truth_of_top_k if x > threshold]) / k,
+             # out of all of topologies above the threshold, how many of them are in the top-k topologies
+             'recall': len([x for x in ground_truth_of_top_k if x > threshold]) /
+                       (len([x for x in ground_truth if x > threshold]) + 1e-3)
+            }
 
-def evaluate_bottom_K(preds, ground_truth, k):
+    return stats
+
+def evaluate_bottom_K(preds, ground_truth, k, threshold=0.4):
     """
     :param preds: a list of surrogate model predictions
     :param ground_truth: a list of ground-truth values (e.g. by the simulator)
-    :return: the highest ground-truth value of the BOTTOM k topologies predicted by the surrogate model
+    :return: statistical analysis of the top-k topologies, in the same format as evaluate_top_K
     """
     preds = np.array(preds)
     ground_truth = np.array(ground_truth)
 
     # get the ones with the highest surrogate rewards
-    top_k_indices = preds.argsort()[:k]
+    bottom_k_indices = preds.argsort()[:k]
 
     # the ground truth values of these candidates
-    ground_truth_of_top_k = ground_truth[top_k_indices]
+    ground_truth_of_bottom_k = ground_truth[bottom_k_indices]
 
-    # return the highest ground-truth value
-    return max(ground_truth_of_top_k)
+    stats = {'max': max(ground_truth_of_bottom_k),
+             'mean': np.mean(ground_truth_of_bottom_k),
+             'std': np.std(ground_truth_of_bottom_k),
+             # out of all of top-k topologies, how many of them are BELOW the threshold
+             'precision': len([x for x in ground_truth_of_bottom_k if x < threshold]) / k,
+             # out of all of topologies BELOW the threshold, how many of them are in the BOTTOM-k topologies
+             'recall': len([x for x in ground_truth_of_bottom_k if x < threshold]) /
+                       len([x for x in ground_truth if x < threshold])
+            }
+
+    return stats
 
 def top_K_coverage_on_ground_truth(preds, ground_truth, k_pred, k_ground_truth):
     """
@@ -59,8 +84,8 @@ def top_K_coverage_on_ground_truth(preds, ground_truth, k_pred, k_ground_truth):
     return 1. * len(shared_indices) / k_ground_truth
 
 
-def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
-                    eff_model=None, vout_model=None, eff_vout_model=None, reward_model=None, cls_vout_model=None):
+def analyze_model(test_loader, num_node, model_index, device, gnn_layers,
+                  eff_model=None, vout_model=None, eff_vout_model=None, reward_model=None, cls_vout_model=None):
     """
     Find the optimal simulator reward of the topologies with the top-k surrogate rewards.
     """
@@ -77,12 +102,7 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
     test_size=len(test_loader)*256
     print("Test bench size:",test_size)
 
-    k_list = [int(test_size*0.01+1),int(test_size*0.05+1),int(test_size*0.1+1),int(test_size*0.2+1)]
-
-   
-    gnn_performs = {k: [] for k in k_list}
-    gnn_performs_bottom = {k: [] for k in k_list}
-    gnn_coverage = {k: [] for k in k_list}
+    k_list = [int(test_size*0.01+1),int(test_size*0.05+1),int(test_size*0.1+1),int(test_size*0.5+1)]
 
     for data in test_loader:
         # load data in batches and compute their surrogate rewards
@@ -115,6 +135,8 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
             sim_rewards.extend(compute_batch_reward(sim_eff, sim_vout))
             gnn_rewards.extend(out[:,0])
 
+            # all_* variables are updated here, instead of end of for loop
+            # todo refactor
             continue
 
         elif cls_vout_model is not None:
@@ -159,16 +181,12 @@ def optimize_reward(test_loader, num_node, model_index, device, gnn_layers,
         #out_list.extend(r)
 
     for k in k_list:
-        gnn_performs[k] = evaluate_top_K(gnn_rewards, sim_rewards, k)
-        gnn_performs_bottom[k] = evaluate_bottom_K(gnn_rewards, sim_rewards, k)
-        gnn_coverage[k] = top_K_coverage_on_ground_truth(gnn_rewards, sim_rewards, k, k)
-
-    print('The highest ground-truth reward in the top-k surrogate-reward topologies.')
-    print(gnn_performs)
-    print('The highest ground-truth reward in the BOTTOM-k surrogate-reward topologies.')
-    print(gnn_performs_bottom)
-    print('How much of the top-k ground-truth topologies are covered by the top-k surrogate-reward topologies.')
-    print(gnn_coverage)
+        print('k', k)
+        print('Top-k topology analysis:')
+        print(evaluate_top_K(gnn_rewards, sim_rewards, k))
+        print('Bottom-k topology analysis:')
+        print(evaluate_bottom_K(gnn_rewards, sim_rewards, k))
+        #gnn_coverage[k] = top_K_coverage_on_ground_truth(gnn_rewards, sim_rewards, k, k)
 
 
 if __name__ == '__main__':
@@ -218,8 +236,8 @@ if __name__ == '__main__':
                                  output_size=2) # need to set output size of the network here
         model.load_state_dict(model_state_dict)
 
-        optimize_reward(test_loader=data_loader, eff_vout_model=model,
-                        num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
+        analyze_model(test_loader=data_loader, eff_vout_model=model,
+                      num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
 
     elif args.reward_model is not None:
         # if this argument is set, load one model that predicts both eff and vout
@@ -235,8 +253,8 @@ if __name__ == '__main__':
                                  output_size=1) # need to set output size of the network here
         model.load_state_dict(model_state_dict)
 
-        optimize_reward(test_loader=data_loader, reward_model=model,
-                        num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
+        analyze_model(test_loader=data_loader, reward_model=model,
+                      num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
 
     elif args.cls_vout_model is not None:
         # if this argument is set, load one model that predicts both eff and vout
@@ -260,8 +278,8 @@ if __name__ == '__main__':
                                      device=device)
         eff_model.load_state_dict(eff_model_state_dict)
 
-        optimize_reward(test_loader=data_loader, eff_model=eff_model, cls_vout_model=cls_vout_model,
-                        num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
+        analyze_model(test_loader=data_loader, eff_model=eff_model, cls_vout_model=cls_vout_model,
+                      num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
     else:
         vout_model_state_dict, data_loader = torch.load(args.vout_model)
         vout_model = initialize_model(model_index=args.model_index,
@@ -283,5 +301,5 @@ if __name__ == '__main__':
                                      device=device)
         eff_model.load_state_dict(eff_model_state_dict)
 
-        optimize_reward(test_loader=data_loader, eff_model=eff_model, vout_model=vout_model,
-                        num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
+        analyze_model(test_loader=data_loader, eff_model=eff_model, vout_model=vout_model,
+                      num_node=nnode, model_index=args.model_index, gnn_layers=args.gnn_layers, device=device)
