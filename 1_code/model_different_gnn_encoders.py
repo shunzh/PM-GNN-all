@@ -225,13 +225,27 @@ class LOOP_GNN(nn.Module):
         super(LOOP_GNN, self).__init__()
 
         nhid = args.len_hidden
+        n_layers = args.gnn_layers
 
-        self.gnn_encoder1 = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
+        self.gnn_encoder1=[]
+
+        for i in range(n_layers):
+                   layer = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
                                n_edge_attr=args.len_edge_attr, n_layers=1, use_gpu=False,
                                dropout=args.dropout)
-        self.gnn_encoder2 = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
+                   self.gnn_encoder1.append(layer)
+                   setattr(self, 'gin_encoder1_{}'.format(i), layer)
+
+
+        self.gnn_encoder2=[]
+
+        for i in range(n_layers):
+                   layer = GIN(n_node_code=nhid, n_edge_code=nhid, n_node_attr=args.len_node_attr,
                                n_edge_attr=args.len_edge_attr, n_layers=1, use_gpu=False,
                                dropout=args.dropout)
+                   self.gnn_encoder2.append(layer)
+                   setattr(self, 'gin_encoder2_{}'.format(i), layer)
+
 
         self.lin1 = torch.nn.Linear(6 * nhid, 128)
         self.lin2 = torch.nn.Linear(128, 64)
@@ -252,8 +266,8 @@ class LOOP_GNN(nn.Module):
         x = self.node_encoder(node_attr)
 
         for loops_num in range(gnn_layers):
-            x1 = self.gnn_encoder1(x, node_attr, edge_attr1, adj)
-            x = self.gnn_encoder2(x1, node_attr, edge_attr2, adj)
+            x1 = self.gnn_encoder1[loops_num](x, node_attr, edge_attr1, adj)
+            x = self.gnn_encoder2[loops_num](x1, node_attr, edge_attr2, adj)
 
         gnn_node_codes = gnn_node_codes = torch.cat([x1,x],dim=2)
         gnn_code = torch.cat([gnn_node_codes[:, 0, :], gnn_node_codes[:, 1, :], gnn_node_codes[:, 2, :]], 1)
