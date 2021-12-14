@@ -6,6 +6,37 @@ import argparse
 from reward_fn import compute_batch_reward
 
 
+def compute_roc(preds, ground_truth):
+    """
+    Generate TPR, FPR points under different thresholds for the ROC curve.
+    Reference: https://developers.google.com/machine-learning/crash-course/classification/roc-and-auc
+
+    :param preds: a list of surrogate model predictions
+    :param ground_truth: a list of ground-truth values (e.g. by the simulator)
+    :return: {threshold: {'TPR': true positive rate, 'FPR': false positive rate}}
+    """
+    preds, ground_truth = np.array(preds), np.array(ground_truth)
+
+    thresholds = np.arange(0.1, 1., step=0.1) # (0.1, 0.2, ..., 0.9)
+    result = {}
+
+    for thres in thresholds:
+        gt_pos = np.where(ground_truth >= thres)[0]
+        gt_neg = np.where(ground_truth < thres)[0]
+
+        predict_pos = np.where(preds >= thres)
+
+        if len(gt_pos) == 0: TPR = 0
+        else: TPR = len(np.intersect1d(gt_pos, predict_pos)) / len(gt_pos)
+
+        if len(gt_neg) == 0: FPR = 0
+        else: FPR = len(np.intersect1d(gt_neg, predict_pos)) / len(gt_neg)
+
+        result[thres] = {'TPR': TPR, 'FPR': FPR}
+
+    return result
+
+
 def evaluate_top_K(preds, ground_truth, k, threshold=0.6):
     """
     :param preds: a list of surrogate model predictions
