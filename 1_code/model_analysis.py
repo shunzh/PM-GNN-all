@@ -24,7 +24,7 @@ def compute_roc(preds, ground_truth):
         gt_pos = np.where(ground_truth >= thres)[0]
         gt_neg = np.where(ground_truth < thres)[0]
 
-        predict_pos = np.where(preds >= thres)
+        predict_pos = np.where(preds >= thres)[0]
 
         if len(gt_pos) == 0: TPR = 0
         else: TPR = len(np.intersect1d(gt_pos, predict_pos)) / len(gt_pos)
@@ -221,6 +221,8 @@ def analyze_model(test_loader, num_node, model_index, device, gnn_layers,
 
 
 if __name__ == '__main__':
+    # debug
+    #compute_roc(np.array([.1, .5, .7]), np.array([.2, .5, .8]))
     # ======================== Arguments ==========================#
 
     parser = argparse.ArgumentParser()
