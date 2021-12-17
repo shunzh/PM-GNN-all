@@ -8,23 +8,21 @@ import math
 
 from easydict import EasyDict
 
-from models import  PT_GNN, Serial_GNN, LOOP_GNN
-from old_models import PT_GNN as Old_PT_GNN
+from model_different_gnn_encoders import  PT_GNN, Serial_GNN, LOOP_GNN
 import copy
+
+from reward_fn import compute_batch_reward
 
 
 def rse(y,yt):
 
     assert(y.shape==yt.shape)
 
-    if len(y)==0:
-        return 0,0
     var=0
     m_yt=yt.mean()
 #    print(yt,m_yt)
     for i in range(len(yt)):
         var+=(yt[i]-m_yt)**2
-    print("len(y)",len(y))
     var = var/len(y)
     mse=0
     for i in range(len(yt)):
@@ -41,7 +39,7 @@ def rse(y,yt):
     return rse,mse
 
 
-def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef_size, device, output_size=1):
+def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef_size,device):
     #初始化模型
     args = EasyDict()
     args.len_hidden = gnn_nodes
@@ -51,7 +49,6 @@ def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef
     args.gnn_layers = gnn_layers
     args.use_gpu = False
     args.dropout = 0
-    args.output_size = output_size
 
     if model_index == 1:
         model = PT_GNN(args).to(device)
@@ -61,10 +58,6 @@ def initialize_model(model_index, gnn_nodes, gnn_layers, pred_nodes, nf_size, ef
         return model
     elif model_index == 3:
         model = LOOP_GNN(args).to(device)
-        return model
-    elif model_index == 4:
-        # PT_GNN used in DATE submission
-        model = Old_PT_GNN(args).to(device)
         return model
     else:
         assert ("Invalid model")
@@ -183,7 +176,7 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
         gold_list=[]
         out_list=[]
         analytic_list = []
-
+ 
 
         TPR=0
         FPR=0
@@ -210,18 +203,16 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
              out=out.reshape(y.shape)
              assert(out.shape == y.shape)
              out=np.array([x for x in out])
-             # Shun: the following needs to be disabled for reg_both
-             # It shouldn't affect reg_eff, reg_vout, etc.
-             #gold=np.array(y.reshape(-1))
-             gold=np.array([x for x in y])
+             gold=np.array(y.reshape(-1))
+             gold=np.array([x for x in gold])
 
              gold_list.extend(gold)
              out_list.extend(out)
 
              L=len(gold)
+             rse_result=rse(out,gold)
              np.set_printoptions(precision=2,suppress=True)
 #
-             """
              out_round=[int(i>0.8) for i in out]
              TP=0
              FN=0
@@ -236,7 +227,6 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
                      FP+=1
                  else:
                      TN+=1
-              """
 #             print(TP/(TP+FN),FP/(TN+FP))
 #             TPR+=TP/(TP+FN)
 #             FPR+=FP/(TN+FP)
@@ -245,12 +235,129 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
 #        print("Predicted:",out[0:128])
 #        print("True     :",gold[0:128])
 #        print("Error    :",len([i for i in abs(out-gold) if i > 0.5])/len(out))
-#        print(gold_list)
-        result_bins = compute_errors_by_bins(np.reshape(out_list,-1),np.reshape(gold_list,-1),[(-0.1,0.2),(0.2,0.4),(0.4,0.6),(0.6,0.8),(0.8,1.1)])
+        result_bins = compute_errors_by_bins(np.reshape(out_list,-1),np.reshape(gold_list,-1),[(0,0.3),(0.3,0.7),(0.7,1)])
 
         final_rse, final_mse = rse(np.reshape(out_list,-1),np.reshape(gold_list,-1))
         print("Final RSE:", final_rse)
         return final_rse,result_bins
+
+
+
+def evaluate_top_K(out, ground_truth, k):
+    out = np.array(out)
+    ground_truth = np.array(ground_truth)
+
+    candidates = out.argsort()[-k:]
+
+    # the ground truth values of the candidates
+    candidate_gt = ground_truth[candidates]
+    # the candidate that has the best true value
+    candidate_arg_max = candidates[np.argmax(candidate_gt)]
+
+    return max(ground_truth[candidates]), candidate_arg_max
+
+def optimize_reward(test_loader, eff_model, vout_model,
+                    n_epoch, batch_size, num_node, model_index, flag,device, th):
+    n_batch_test = 0
+
+    sim_rewards = []
+    analytic_rewards = []
+    gnn_rewards = []
+
+    all_sim_eff = []
+    all_sim_vout = []
+    all_gnn_eff = []
+    all_gnn_vout = []
+    all_analytic_eff = []
+    all_analytic_vout = []
+
+    k_list = [1, 10, 20, 30, 50, 100]
+
+    sim_opts = []
+    analytic_performs = {k: [] for k in k_list}
+    gnn_performs = {k: [] for k in k_list}
+
+    for data in test_loader:
+        data.to(device)
+        L = data.node_attr.shape[0]
+        B = int(L / num_node)
+        node_attr = torch.reshape(data.node_attr, [B, int(L / B), -1])
+        if model_index == 0:
+            edge_attr = torch.reshape(data.edge0_attr, [B, int(L / B), int(L / B), -1])
+        else:
+            edge_attr1 = torch.reshape(data.edge1_attr, [B, int(L / B), int(L / B), -1])
+            edge_attr2 = torch.reshape(data.edge2_attr, [B, int(L / B), int(L / B), -1])
+
+        adj = torch.reshape(data.adj, [B, int(L / B), int(L / B)])
+
+        sim_eff = data.sim_eff.cpu().detach().numpy()
+        sim_vout = data.sim_vout.cpu().detach().numpy()
+
+        analytic_eff = data.analytic_eff.cpu().detach().numpy()
+        analytic_vout = data.analytic_vout.cpu().detach().numpy()
+
+        n_batch_test = n_batch_test + 1
+        if model_index == 0:
+            eff = eff_model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
+            vout = vout_model(input=(node_attr.to(device), edge_attr.to(device), adj.to(device))).cpu().detach().numpy()
+        else:
+            eff = eff_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
+            vout = vout_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
+            #r = r_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device))).cpu().detach().numpy()
+
+        gnn_eff = eff.squeeze(1)
+        gnn_vout = vout.squeeze(1)
+        #r = r.squeeze(1)
+
+        all_sim_eff.extend(sim_eff)
+        all_sim_vout.extend(sim_vout)
+
+        all_gnn_eff.extend(gnn_eff)
+        all_gnn_vout.extend(gnn_vout)
+
+        all_analytic_eff.extend(gnn_eff)
+        all_analytic_vout.extend(gnn_vout)
+
+        sim_rewards.extend(compute_batch_reward(sim_eff, sim_vout))
+        analytic_rewards.extend(compute_batch_reward(analytic_eff, analytic_vout))
+        gnn_rewards.extend(compute_batch_reward(gnn_eff, gnn_vout))
+        #out_list.extend(r)
+
+        # sim opt
+        sim_opt = np.max(sim_rewards)
+        sim_opt_idx = np.argmax(sim_rewards)
+
+        print('sim: reward {}, eff {}, vout {}'
+              .format(sim_opt, all_sim_eff[sim_opt_idx], all_sim_vout[sim_opt_idx]))
+        sim_opts.append(sim_opt)
+
+        for k in k_list:
+            # analytic
+            analytic, analytic_idx = evaluate_top_K(analytic_rewards, sim_rewards, k)
+            print('analytic {}: true reward {}, true eff {}, true vout {}, predicted reward {}, predicted eff {}, predicted vout {}'
+                  .format(k, analytic, all_sim_eff[analytic_idx], all_sim_vout[analytic_idx],
+                          analytic_rewards[analytic_idx], all_analytic_eff[analytic_idx], all_analytic_vout[analytic_idx]))
+            analytic_performs[k].append(analytic)
+
+            # gnn
+            gnn, gnn_idx = evaluate_top_K(gnn_rewards, sim_rewards, k)
+            print('gnn {}: true reward {}, true eff {}, true vout {}, predicted reward {}, predicted eff {}, predicted vout {}'
+                  .format(k, gnn, all_sim_eff[gnn_idx], all_sim_vout[gnn_idx],
+                          gnn_rewards[gnn_idx], all_gnn_eff[gnn_idx], all_gnn_vout[gnn_idx]))
+            gnn_performs[k].append(gnn)
+
+        print()
+
+    np.set_printoptions(precision=2, suppress=True)
+
+    print("GNN RSE:", rse(np.array(gnn_rewards), np.array(sim_rewards)))
+    print("Analytic RSE:", rse(np.array(analytic_rewards), np.array(sim_rewards)))
+
+    print('sim', sim_opts)
+    print('analytic', analytic_performs)
+    print('gnn', gnn_performs)
+
+    return [sim_opts] + list(analytic_performs.values()) + list(gnn_performs.values())
 
 
 def compute_errors_by_bins(pred_y:np.array, true_y:np.array, bins):
@@ -270,7 +377,7 @@ def compute_errors_by_bins(pred_y:np.array, true_y:np.array, bins):
 
         if len(indices) > 0:
             temp_rse, temp_mse = rse(pred_y[indices], true_y[indices])
-            results.append(math.sqrt(temp_mse))
+            results.append(temp_mse)
             # print('data between ' + str(range_from) + ' ' + str(range_to))
             # pprint.pprint(list(zip(pred_y[indices], true_y[indices])))
         else:
