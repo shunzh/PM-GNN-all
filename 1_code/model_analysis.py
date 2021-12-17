@@ -178,12 +178,10 @@ def get_gnn_single_data_reward(dataset, num_node, model_index, device, gnn_layer
     return gnn_reward[0]
 
 
-
-
 # def analyze_analytic(sweep, ):
 
 
-def analyze_analytic(sweep, num_component, dataset, target_vout=50):
+def analyze_analytic(sweep, num_component, dataset, k, target_vout=50):
     analytic_rewards = []
     sim_rewards = []
 
@@ -201,11 +199,11 @@ def analyze_analytic(sweep, num_component, dataset, target_vout=50):
             sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
                                                 'output_voltage': topo_info['vout']}, target_vout=target_vout)
             sim_rewards.append(sim_reward)
-    print(evaluate_top_K(analytic_rewards, sim_rewards, k=k))
-    return
+    print('analytic:', evaluate_top_K(analytic_rewards, sim_rewards, k=k))
+    return evaluate_top_K(analytic_rewards, sim_rewards, k=k)
 
 
-def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, dataset, target_vout=50):
+def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, dataset, k, target_vout=50):
     args_file_name = './TransformerGP/UCFTopo_dev/config'
     sim_configs = {}
     transformer_rewards = []
@@ -214,6 +212,7 @@ def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, d
     get_args(args_file_name, sim_configs)
     sim = init_transformer_sim(num_component=num_component, sim_configs=sim_configs,
                                eff_model_seed=eff_model_seed, vout_model_seed=vout_model_seed)
+    t = len(dataset)
     if sweep:
         transformer_sweep_rewards = {}
         sim_sweep_data, sim_sweep_rewards = generate_sweep_dataset(dataset=dataset, target_vout=50)
@@ -226,8 +225,12 @@ def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, d
                                               param=[0.1, 10, 100])
             if (key_para not in transformer_rewards) or (transformer_reward > transformer_rewards[key_para]):
                 transformer_sweep_rewards[key_para] = transformer_reward
+            t -= 1
+            if t % 500 == 0:
+                print(t, ' remaining')
         transformer_rewards = list(transformer_sweep_rewards.values())
     else:
+
         for key_para, topo_info in dataset.items():
             transformer_reward, transformer_effi, transformer_vout = \
                 get_prediction_from_topo_info(sim=sim,
@@ -238,8 +241,11 @@ def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, d
             sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
                                                 'output_voltage': topo_info['vout']}, target_vout=target_vout)
             sim_rewards.append(sim_reward)
-    print(evaluate_top_K(transformer_rewards, sim_rewards, k=k))
-    return
+            t -= 1
+            if t % 500 == 0:
+                print(t, ' remaining')
+    print('transformer: ', evaluate_top_K(transformer_rewards, sim_rewards, k=k))
+    return evaluate_top_K(transformer_rewards, sim_rewards, k=k)
 
 
 def clear_files(save_data_folder, raw_data_folder, ncomp):
@@ -251,15 +257,13 @@ def clear_files(save_data_folder, raw_data_folder, ncomp):
     @return:
     '''
 
-    os.system('rm '+raw_data_folder + "/dataset" + "_" + str(ncomp) + ".json")
+    os.system('rm ' + raw_data_folder + "/dataset" + "_" + str(ncomp) + ".json")
     os.system('rm ' + save_data_folder + '/processed/data.pt')
     os.system('rm ' + save_data_folder + '/processed/pre_filter.pt')
     os.system('rm ' + save_data_folder + '/processed/pre_transform.ptb')
 
 
-
-
-def analyze_gnn(sweep, num_component, args, dataset, target_vout=50):
+def analyze_gnn(sweep, num_component, args, dataset, k, target_vout=50):
     '''
 
     @param sweep:
@@ -359,6 +363,7 @@ def analyze_gnn(sweep, num_component, args, dataset, target_vout=50):
 
     gnn_rewards = []
     sim_rewards = []
+    t = len(dataset)
     if sweep:
         sim_sweep_data, sim_sweep_rewards = generate_sweep_dataset(dataset=dataset, target_vout=50)
         sim_rewards = list(sim_sweep_rewards.values())
@@ -378,6 +383,9 @@ def analyze_gnn(sweep, num_component, args, dataset, target_vout=50):
                 gnn_sweep_rewards[key_para] = gnn_reward
             clear_files(save_data_folder=args.single_data_folder, raw_data_folder=args.single_data_path,
                         ncomp=args.num_component)
+            t -= 1
+            if t % 500 == 0:
+                print(t, ' remaining')
         gnn_rewards = list(gnn_sweep_rewards.values())
 
     else:
@@ -399,21 +407,37 @@ def analyze_gnn(sweep, num_component, args, dataset, target_vout=50):
             sim_rewards.append(sim_reward)
             clear_files(save_data_folder=args.single_data_folder, raw_data_folder=args.single_data_path,
                         ncomp=args.num_component)
-    print(evaluate_top_K(gnn_rewards, sim_rewards, k=k))
-    return
+            t -= 1
+            if t % 500 == 0:
+                print(t, ' remaining')
+    print('gnn: ', evaluate_top_K(gnn_rewards, sim_rewards, k=k))
+    return evaluate_top_K(gnn_rewards, sim_rewards, k=k)
 
 
 if __name__ == '__main__':
     # ======================== Arguments ==========================#
+
     args = get_args()
     dataset = json.load(open('./datasets/dataset_3.json'))
+    results_to_save = {}
+    for i in range(1, 3):
+        k = int(len(dataset) * i / 10)
+        print('when k=', k)
+        results_to_save[k] = {}
+        results_to_save[k]['gnn'] = gnn_result = analyze_gnn(sweep=args.sweep, num_component=args.num_component,
+                                                             args=args,
+                                                             dataset=dataset, k=k)
+        # # test transformer
+        # results_to_save[k]['transformer'] = transformer_result = analyze_transformer(sweep=args.sweep,
+        #                                                                              num_component=args.num_component,
+        #                                                                              eff_model_seed=6,
+        #                                                                              vout_model_seed=4, dataset=dataset,
+        #                                                                              k=k)
+        # # analytic
+        # results_to_save[k]['analytic'] = analytic_result = analyze_analytic(sweep=args.sweep,
+        #                                                                     num_component=args.num_component,
+        #                                                                     dataset=dataset, k=k)
 
-    for k in [100]:
-        analyze_gnn(sweep=args.sweep, num_component=args.num_component, args=args, dataset=dataset)
-        # test transformer
-
-        analyze_transformer(sweep=args.sweep, num_component=args.num_component,
-                            eff_model_seed=6, vout_model_seed=4, dataset=dataset)
-        # analytic
-        analyze_analytic(sweep=args.sweep, num_component=args.num_component,
-                         dataset=dataset)
+    with open(args.output_file_name + "_sweep-" + str(args.sweep) + ".json", 'w') as f:
+        json.dump(results_to_save, f)
+    f.close()

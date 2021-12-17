@@ -4,7 +4,7 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-sweep', action='store_true', default=False, help='sweep parameters')
+    parser.add_argument('-sweep', action='store_true', default=True, help='sweep parameters')
     parser.add_argument('-num_component', type=int, default=3, help='raw data path')
     parser.add_argument('-transformer_eff_model_seed', type=int, default=6, help='transformer eff model seed')
     parser.add_argument('-transformer_vout_model_seed', type=int, default=4, help='transformer vout model seed')
@@ -12,6 +12,7 @@ def get_args():
     parser.add_argument('-path', type=str, default="./datasets", help='raw data path')
     parser.add_argument('-single_data_path', type=str, default='./datasets/single_data_datasets', help='raw data path')
     parser.add_argument('-single_data_folder', type=str, default='./datasets/single_data_datasets/2_row_dataset', help='raw data path')
+    parser.add_argument('-output_file_name', type=str, default='result', help='output_file_name')
 
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-n_epoch', type=int, default=10, help='number of training epoch')
