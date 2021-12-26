@@ -1,3 +1,4 @@
+import csv
 import os
 import sys
 
@@ -10,7 +11,7 @@ import argparse
 
 from arguments import get_args
 from reward_fn import compute_batch_reward
-from topo_data_shun import Autopo, split_balance_data
+from topo_data import Autopo, split_balance_data
 from data_preprocessing import *
 
 
@@ -125,14 +126,8 @@ def get_gnn_single_data_reward(dataset, num_node, model_index, device, gnn_layer
     sim_vout = data.sim_vout.cpu().detach().numpy()
 
     n_batch_test = n_batch_test + 1
-    if eff_vout_model is not None:
-        # using a model that can predict both eff and vout
-        out = eff_vout_model(input=(
-            node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
-            gnn_layers)).cpu().detach().numpy()
-        gnn_eff, gnn_vout = out[:, 0], out[:, 1]
-
-    elif reward_model is not None:
+    # Be careful about the order
+    if reward_model is not None:
         out = reward_model(input=(
             node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
             gnn_layers)).cpu().detach().numpy()
@@ -142,6 +137,13 @@ def get_gnn_single_data_reward(dataset, num_node, model_index, device, gnn_layer
         # continue
         gnn_reward = out[:, 0]
         return gnn_reward[0]
+
+    elif eff_vout_model is not None:
+        # using a model that can predict both eff and vout
+        out = eff_vout_model(input=(
+            node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
+            gnn_layers)).cpu().detach().numpy()
+        gnn_eff, gnn_vout = out[:, 0], out[:, 1]
 
     elif cls_vout_model is not None:
         eff = eff_model(input=(node_attr.to(device), edge_attr1.to(device), edge_attr2.to(device), adj.to(device),
@@ -181,7 +183,7 @@ def get_gnn_single_data_reward(dataset, num_node, model_index, device, gnn_layer
 # def analyze_analytic(sweep, ):
 
 
-def analyze_analytic(sweep, num_component, dataset, k, target_vout=50):
+def analyze_analytic(sweep, num_component, dataset, klist, target_vout=50, output_folder='results'):
     analytic_rewards = []
     sim_rewards = []
 
@@ -199,11 +201,16 @@ def analyze_analytic(sweep, num_component, dataset, k, target_vout=50):
             sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
                                                 'output_voltage': topo_info['vout']}, target_vout=target_vout)
             sim_rewards.append(sim_reward)
-    print('analytic:', evaluate_top_K(analytic_rewards, sim_rewards, k=k))
-    return evaluate_top_K(analytic_rewards, sim_rewards, k=k)
+    results = {}
+    output_file = 'analytic.csv'
+    for eval_k in klist:
+        results[eval_k] = evaluate_top_K(analytic_rewards, sim_rewards, k=eval_k)
+    write_results_to_csv_file(output_folder + output_file, results)
+    return results
 
 
-def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, dataset, k, target_vout=50):
+def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, dataset, klist, target_vout=50,
+                        output_folder='results'):
     args_file_name = './TransformerGP/UCFTopo_dev/config'
     sim_configs = {}
     transformer_rewards = []
@@ -223,11 +230,13 @@ def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, d
                                               list_of_node=topo_info['list_of_node'],
                                               list_of_edge=topo_info['list_of_edge'],
                                               param=[0.1, 10, 100])
-            if (key_para not in transformer_rewards) or (transformer_reward > transformer_rewards[key_para]):
-                transformer_sweep_rewards[key_para] = transformer_reward
+            key = key_para.split('$')[0]
+            if (key not in transformer_rewards) or (transformer_reward >= transformer_rewards[key]):
+                transformer_sweep_rewards[key] = transformer_reward
             t -= 1
             if t % 500 == 0:
                 print(t, ' remaining')
+        print(len(transformer_sweep_rewards))
         transformer_rewards = list(transformer_sweep_rewards.values())
     else:
 
@@ -244,8 +253,12 @@ def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, d
             t -= 1
             if t % 500 == 0:
                 print(t, ' remaining')
-    print('transformer: ', evaluate_top_K(transformer_rewards, sim_rewards, k=k))
-    return evaluate_top_K(transformer_rewards, sim_rewards, k=k)
+    results = {}
+    for eval_k in klist:
+        results[eval_k] = evaluate_top_K(transformer_rewards, sim_rewards, k=eval_k)
+    output_file = 'tansformer.csv'
+    write_results_to_csv_file(output_folder + output_file, results)
+    return results
 
 
 def clear_files(save_data_folder, raw_data_folder, ncomp):
@@ -263,7 +276,24 @@ def clear_files(save_data_folder, raw_data_folder, ncomp):
     os.system('rm ' + save_data_folder + '/processed/pre_transform.ptb')
 
 
-def analyze_gnn(sweep, num_component, args, dataset, k, target_vout=50):
+def topo_info_valid(topo_info):
+    list_of_edge = topo_info["list_of_edge"]
+
+    edge_attr = topo_info["edge_attr"]
+    node_attr = topo_info["node_attr"]
+
+    if topo_info["vout"] / 100 > 1 or topo_info["vout"] / 100 < 0:
+        # print(topo_info)
+        return False
+    if topo_info["vout"] == -1:
+        return False
+    if topo_info["eff"] < 0 or topo_info["eff"] > 1:
+        # print(topo_info)
+        return False
+    return True
+
+
+def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, output_folder='./results/'):
     '''
 
     @param sweep:
@@ -287,35 +317,38 @@ def analyze_gnn(sweep, num_component, args, dataset, k, target_vout=50):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     eff_model, vout_model, eff_vout_model, reward_model, cls_vout_model = None, None, None, None, None
-    if args.eff_vout_model is not None:
+    if args.reward_model is not None:
+        # if this argument is set, load one model that predicts both eff and vout
+        reward_model_state_dict, _ = torch.load(args.reward_model)
+
+        reward_model = initialize_model(model_index=args.model_index,
+                                        gnn_nodes=args.gnn_nodes,
+                                        gnn_layers=args.gnn_layers,
+                                        pred_nodes=args.predictor_nodes,
+                                        nf_size=nf_size,
+                                        ef_size=ef_size,
+                                        device=device,
+                                        output_size=1)  # need to set output size of the network here
+        reward_model.load_state_dict(reward_model_state_dict)
+        output_file = args.reward_model.replace('.pt', '.csv')
+    elif args.eff_vout_model is not None:
         # if this argument is set, load one model that predicts both eff and vout
         # model_state_dict, data_loader = torch.load(args.eff_vout_model)
-        model_state_dict, _ = torch.load(args.eff_vout_model)
+        eff_vout_model_state_dict, _ = torch.load(args.eff_vout_model)
 
-        model = initialize_model(model_index=args.model_index,
-                                 gnn_nodes=args.gnn_nodes,
-                                 gnn_layers=args.gnn_layers,
-                                 pred_nodes=args.predictor_nodes,
-                                 nf_size=nf_size,
-                                 ef_size=ef_size,
-                                 device=device,
-                                 output_size=2)  # need to set output size of the network here
-        model.load_state_dict(model_state_dict)
+        eff_vout_model = initialize_model(model_index=args.model_index,
+                                          gnn_nodes=args.gnn_nodes,
+                                          gnn_layers=args.gnn_layers,
+                                          pred_nodes=args.predictor_nodes,
+                                          nf_size=nf_size,
+                                          ef_size=ef_size,
+                                          device=device,
+                                          output_size=2)  # need to set output size of the network here
+        eff_vout_model.load_state_dict(eff_vout_model_state_dict)
+        output_file = args.eff_vout_model.replace('.pt', '.csv')
 
 
-    elif args.reward_model is not None:
-        # if this argument is set, load one model that predicts both eff and vout
-        model_state_dict, data_loader = torch.load(args.reward_model)
 
-        model = initialize_model(model_index=args.model_index,
-                                 gnn_nodes=args.gnn_nodes,
-                                 gnn_layers=args.gnn_layers,
-                                 pred_nodes=args.predictor_nodes,
-                                 nf_size=nf_size,
-                                 ef_size=ef_size,
-                                 device=device,
-                                 output_size=1)  # need to set output size of the network here
-        model.load_state_dict(model_state_dict)
 
 
     elif args.cls_vout_model is not None:
@@ -339,6 +372,7 @@ def analyze_gnn(sweep, num_component, args, dataset, k, target_vout=50):
                                      ef_size=ef_size,
                                      device=device)
         eff_model.load_state_dict(eff_model_state_dict)
+        output_file = args.cls_vout_model.replace('.pt', '.csv')
 
     else:
         vout_model_state_dict, _ = torch.load(args.vout_model)
@@ -360,6 +394,7 @@ def analyze_gnn(sweep, num_component, args, dataset, k, target_vout=50):
                                      ef_size=ef_size,
                                      device=device)
         eff_model.load_state_dict(eff_model_state_dict)
+        output_file = args.eff_model.replace('.pt', '.csv')
 
     gnn_rewards = []
     sim_rewards = []
@@ -368,24 +403,35 @@ def analyze_gnn(sweep, num_component, args, dataset, k, target_vout=50):
         sim_sweep_data, sim_sweep_rewards = generate_sweep_dataset(dataset=dataset, target_vout=50)
         sim_rewards = list(sim_sweep_rewards.values())
         gnn_sweep_rewards = {}
-        for key_para, topo_info in dataset.items():
+        if (args.reward_model is not None) and ('only_max' in args.reward_model):
+            gnn_dataset, _ = generate_dataset_for_gnn_max_reward_prediction(dataset=dataset, target_vout=50)
+        else:
+            gnn_dataset = dataset
+
+        for key_para, topo_info in gnn_dataset.items():
             clear_files(save_data_folder=args.single_data_folder, raw_data_folder=args.single_data_path,
                         ncomp=args.num_component)
             generate_single_data_file(key_para=key_para, topo_info=topo_info,
                                       single_data_path=args.single_data_path, ncomp=args.num_component)
-            auto_dataset = Autopo(args.single_data_folder, args.single_data_path, args.y_select, args.num_component)
-            gnn_reward = get_gnn_single_data_reward(dataset=auto_dataset, eff_model=eff_model, vout_model=vout_model,
-                                                    eff_vout_model=eff_vout_model, reward_model=reward_model,
-                                                    cls_vout_model=cls_vout_model,
-                                                    num_node=nnode, model_index=args.model_index,
-                                                    gnn_layers=args.gnn_layers, device=device)
-            if (key_para not in gnn_sweep_rewards) or (gnn_reward > gnn_sweep_rewards[key_para]):
-                gnn_sweep_rewards[key_para] = gnn_reward
+            if topo_info_valid(topo_info=topo_info):
+                auto_dataset = Autopo(args.single_data_folder, args.single_data_path, args.y_select, args.num_component)
+                gnn_reward = get_gnn_single_data_reward(dataset=auto_dataset, eff_model=eff_model,
+                                                        vout_model=vout_model,
+                                                        eff_vout_model=eff_vout_model, reward_model=reward_model,
+                                                        cls_vout_model=cls_vout_model,
+                                                        num_node=nnode, model_index=args.model_index,
+                                                        gnn_layers=args.gnn_layers, device=device)
+            else:
+                gnn_reward = 0
+            key = key_para.split('$')[0]
+            if (key not in gnn_sweep_rewards) or (gnn_reward >= gnn_sweep_rewards[key]):
+                gnn_sweep_rewards[key] = gnn_reward
             clear_files(save_data_folder=args.single_data_folder, raw_data_folder=args.single_data_path,
                         ncomp=args.num_component)
             t -= 1
             if t % 500 == 0:
                 print(t, ' remaining')
+        print(len(gnn_sweep_rewards))
         gnn_rewards = list(gnn_sweep_rewards.values())
 
     else:
@@ -395,12 +441,16 @@ def analyze_gnn(sweep, num_component, args, dataset, k, target_vout=50):
 
             generate_single_data_file(key_para=key_para, topo_info=topo_info,
                                       single_data_path=args.single_data_path, ncomp=args.num_component)
-            auto_dataset = Autopo(args.single_data_folder, args.single_data_path, args.y_select, args.num_component)
-            gnn_reward = get_gnn_single_data_reward(dataset=auto_dataset, eff_model=eff_model, vout_model=vout_model,
-                                                    eff_vout_model=eff_vout_model, reward_model=reward_model,
-                                                    cls_vout_model=cls_vout_model,
-                                                    num_node=nnode, model_index=args.model_index,
-                                                    gnn_layers=args.gnn_layers, device=device)
+            if topo_info_valid(topo_info):
+                auto_dataset = Autopo(args.single_data_folder, args.single_data_path, args.y_select, args.num_component)
+                gnn_reward = get_gnn_single_data_reward(dataset=auto_dataset, eff_model=eff_model,
+                                                        vout_model=vout_model,
+                                                        eff_vout_model=eff_vout_model, reward_model=reward_model,
+                                                        cls_vout_model=cls_vout_model,
+                                                        num_node=nnode, model_index=args.model_index,
+                                                        gnn_layers=args.gnn_layers, device=device)
+            else:
+                gnn_reward = 0
             gnn_rewards.append(gnn_reward)
             sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
                                                 'output_voltage': topo_info['vout']}, target_vout=target_vout)
@@ -410,34 +460,59 @@ def analyze_gnn(sweep, num_component, args, dataset, k, target_vout=50):
             t -= 1
             if t % 500 == 0:
                 print(t, ' remaining')
-    print('gnn: ', evaluate_top_K(gnn_rewards, sim_rewards, k=k))
-    return evaluate_top_K(gnn_rewards, sim_rewards, k=k)
+    results = {}
+    for eval_k in klist:
+        results[eval_k] = evaluate_top_K(gnn_rewards, sim_rewards, k=eval_k)
+    write_results_to_csv_file(output_folder+output_file, results)
+    return results
 
+
+def write_results_to_csv_file(file_name, results):
+    """
+
+    @param file_name:
+    @param results: {k:{'max':max, 'mean':mean, 'std':std, 'precision', precision, 'recall', recall}}
+    @return:
+    """
+    header = ['k', 'max', 'mean', 'std', 'precision', 'recall']
+    output_for_ks = []
+    index = 0
+    for k, values in results.items():
+        csv_list = [k]
+        csv_list.extend(list(values.values()))
+        output_for_ks.append(csv_list)
+    with open(file_name, 'w', newline='') as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(header)
+        csv_writer.writerows(output_for_ks)
+    f.close()
 
 if __name__ == '__main__':
     # ======================== Arguments ==========================#
 
     args = get_args()
     dataset = json.load(open('./datasets/dataset_3.json'))
-    results_to_save = {}
-    for i in range(1, 3):
-        k = int(len(dataset) * i / 10)
-        print('when k=', k)
-        results_to_save[k] = {}
-        results_to_save[k]['gnn'] = gnn_result = analyze_gnn(sweep=args.sweep, num_component=args.num_component,
-                                                             args=args,
-                                                             dataset=dataset, k=k)
-        # # test transformer
-        # results_to_save[k]['transformer'] = transformer_result = analyze_transformer(sweep=args.sweep,
-        #                                                                              num_component=args.num_component,
-        #                                                                              eff_model_seed=6,
-        #                                                                              vout_model_seed=4, dataset=dataset,
-        #                                                                              k=k)
-        # # analytic
-        # results_to_save[k]['analytic'] = analytic_result = analyze_analytic(sweep=args.sweep,
-        #                                                                     num_component=args.num_component,
-        #                                                                     dataset=dataset, k=k)
 
-    with open(args.output_file_name + "_sweep-" + str(args.sweep) + ".json", 'w') as f:
-        json.dump(results_to_save, f)
-    f.close()
+    results_to_save = {}
+
+    klist = [i for i in range(1, 1+int(len(dataset)/5))]
+    result_folder = './results/'+str(args.num_component)+'comp/'
+
+    gnn_results = analyze_gnn(sweep=args.sweep, num_component=args.num_component,
+                              args=args,
+                              dataset=dataset, klist=klist, output_folder=result_folder+'gnn/')
+    #
+    # test transformer
+    # transformer_results = analyze_transformer(sweep=args.sweep, num_component=args.num_component, eff_model_seed=6,
+    #                                           vout_model_seed=4, dataset=dataset,
+    #                                           klist=klist, output_folder=result_folder)
+    # analytic
+    # analytic_results = analyze_analytic(sweep=args.sweep, num_component=args.num_component, dataset=dataset,
+    #                                     klist=klist, output_folder=result_folder)
+
+    '''
+    5 component component combination analysis
+    dataset = json.load(open('./datasets/dataset_5.json'))
+    dataset_statistic(dataset, 50)
+    '''
+

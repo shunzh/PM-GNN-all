@@ -68,7 +68,6 @@ class Autopo(InMemoryDataset):
 
             netlist = json_file[item]["netlist"]
 
-
             nn = nn + 1
             # print(nn)
             # if nn>2:
@@ -125,14 +124,14 @@ class Autopo(InMemoryDataset):
 
             elif y_select == 'cls_buck':
                 target_vout = []
-                #target_vout.append(float(json_file[item]["vout"] / 100))
+                # target_vout.append(float(json_file[item]["vout"] / 100))
                 temp = float(json_file[item]["vout"])
                 if temp < 30:
                     target_vout.append(0)
                 elif temp < 50:
-                    target_vout.append((temp-30)/20)
+                    target_vout.append((temp - 30) / 20)
                 elif temp < 70:
-                    target_vout.append((70-temp)/20)
+                    target_vout.append((70 - temp) / 20)
                 else:
                     target_vout.append(0)
                 label = target_vout
@@ -292,16 +291,16 @@ class Autopo(InMemoryDataset):
             node_attr_padded[:n, :] = node_attr_new
 
             edge_attr0 = \
-            torch_geometric.utils.to_dense_adj(torch.tensor(edge_index), None, torch.tensor(edge_attr_new0),
-                                               len(node_attr_new))[0]
+                torch_geometric.utils.to_dense_adj(torch.tensor(edge_index), None, torch.tensor(edge_attr_new0),
+                                                   len(node_attr_new))[0]
 
             edge_attr1 = \
-            torch_geometric.utils.to_dense_adj(torch.tensor(edge_index), None, torch.tensor(edge_attr_new1),
-                                               len(node_attr_new))[0]
+                torch_geometric.utils.to_dense_adj(torch.tensor(edge_index), None, torch.tensor(edge_attr_new1),
+                                                   len(node_attr_new))[0]
 
             edge_attr2 = \
-            torch_geometric.utils.to_dense_adj(torch.tensor(edge_index), None, torch.torch.tensor(edge_attr_new2),
-                                               len(node_attr_new))[0]
+                torch_geometric.utils.to_dense_adj(torch.tensor(edge_index), None, torch.torch.tensor(edge_attr_new2),
+                                                   len(node_attr_new))[0]
 
             r = edge_attr1.shape[0]
             c = edge_attr1.shape[1]
@@ -332,7 +331,6 @@ class Autopo(InMemoryDataset):
             tmp[file_name]['list_of_edge'] = list_of_edge
             tmp[file_name]['netlist'] = netlist
             tmp[file_name]['duty_cycle'] = duty_cycle
-
 
         return tmp
 
@@ -366,9 +364,8 @@ class Autopo(InMemoryDataset):
                         adj=adj, label=label,
                         analytic_eff=analytic_eff, analytic_vout=analytic_vout,
                         sim_eff=sim_eff, sim_vout=sim_vout, duty_cycle=duty_cycle)
-                        # list_of_node=list_of_node, list_of_edge=list_of_edge, netlist=netlist
+            # list_of_node=list_of_node, list_of_edge=list_of_edge, netlist=netlist
             data_list.append(data)
-
 
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]
@@ -456,8 +453,8 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
             # print(ind_positive)
         else:
             ind_negative.append(ind)
-        #通过判断eff是否在0.3-0.7
-        #判断vout是否在0.1-0.9之间
+        # 通过判断eff是否在0.3-0.7
+        # 判断vout是否在0.1-0.9之间
         ind += 1
     indices_new = []
 
@@ -470,9 +467,9 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
 
     A = len(ind_positive)
     B = len(ind_negative)
-    a = B/A/4 - 1
-    i = int(a*A)
-    positive_percentage = A/(A+B)
+    a = B / A / 4 - 1
+    i = int(a * A)
+    positive_percentage = A / (A + B)
     # a = Decimal(a).quantize(Decimal('0.0'))
     print("percent: ", positive_percentage)
     print("A", A)
@@ -484,7 +481,7 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
         indices_new.extend(ind_negative)
     else:
         if a < 0.5:
-            indices_new.extend(list(np.random.choice(ind_positive,int(a*A))))
+            indices_new.extend(list(np.random.choice(ind_positive, int(a * A))))
         else:
             for i in range(round(a)):
                 indices_new.extend(ind_positive)
@@ -493,12 +490,9 @@ def split_imbalance_data(dataset, batch_size, rtrain, rval, rtest):
     # for i in range(len(list(np.random.choice(ind_positive, int(a * A))))):
     #     indices_new.append(list(np.random.choice(ind_positive, int(a * A)))[i])
 
-    #indices_new.extend(list(np.random.choice(ind_positive, i)))
+    # indices_new.extend(list(np.random.choice(ind_positive, i)))
 
-
-    print("new positve percentage: ",(len(indices_new)-dataset_size)/len(indices_new))
-
-
+    print("new positve percentage: ", (len(indices_new) - dataset_size) / len(indices_new))
 
     dataset_size_new = len(indices_new)
     # print("dataset_size_new: ", dataset_size_new)

@@ -1,11 +1,9 @@
 import csv
 import os
 from datetime import datetime
-import numpy as np
-import torch
 from torch.nn import Linear, MSELoss
 
-from topo_data_shun import *
+from topo_data import *
 
 from ml_utils import train, test, rse, initialize_model
 import argparse
@@ -17,13 +15,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-path', type=str, default="../0_rawdata", help='raw data path')
-    parser.add_argument('-y_select', type=str, default='reg_eff', help='define target label')
+    parser.add_argument('-y_select', type=str, default='reg_vout', help='define target label')
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-n_epoch', type=int, default=100, help='number of training epoch')
-    parser.add_argument('-gnn_nodes', type=int, default=40, help='number of nodes in hidden layer in GNN')
+    parser.add_argument('-gnn_nodes', type=int, default=20, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=10, help='number of MLP predictor nodes at output of GNN')
-    parser.add_argument('-gnn_layers', type=int, default=4, help='number of layer')
-    parser.add_argument('-model_index', type=int, default=1, help='model index')
+    parser.add_argument('-gnn_layers', type=int, default=2, help='number of layer')
+    parser.add_argument('-model_index', type=int, default=2, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
     parser.add_argument('-ncomp', type=int, default=3, help='# components')
     parser.add_argument('-train_rate', type=float, default=0.7, help='# components')
@@ -38,7 +36,7 @@ if __name__ == '__main__':
     # ----------------------------------------------------------------------------------------------------#
 
     args = parser.parse_args()
-    print("args: ", args)
+    print("\nargs: ", args)
 
     ncomp = args.ncomp
     train_rate = args.train_rate
@@ -53,31 +51,26 @@ if __name__ == '__main__':
     model_index = args.model_index
     retrain = args.retrain
 
-    # print(retrain)
-
     lr = args.lr
     weight_decay = args.weight_decay
     seedrange = args.seedrange
 
-    output_file = datetime.now().strftime('../result/' + '%m-%d-%H-%M-%S' + y_select + '_' + str(model_index) + 'Mod_' + \
-                                          str(gnn_layers) + 'layers_' + str(gnn_nodes) + 'nodes_' + \
-                                          str(ncomp) + 'comp')
+    output_file = datetime.now().strftime(y_select + '-' + str(ncomp))
     final_result = []
 
     # ======================== Data & Model ==========================#
 
     dataset = Autopo(data_folder, path, y_select, ncomp)
 
-    if y_select == 'cls_buck' or y_select == 'reg_vout':
-        print('imbalance')
-        train_loader, val_loader, test_loader = split_imbalance_data(dataset, batch_size, train_rate, 0.1, 0.2)
-    else:
-        train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size, train_rate, 0.1, 0.2)
+    print('\n # data point:\n', len(dataset))
 
-    # # set random seed for training
-    # np.random.seed(args.seed)
-    # torch.manual_seed(args.seed)
-    # torch.cuda.manual_seed(args.seed)
+    if y_select == 'cls_buck':
+        train_loader, val_loader, test_loader = split_imbalance_data_cls(dataset, batch_size, train_rate, 0.1, 0.1)
+    elif y_select == 'reg_reward':
+        train_loader, val_loader, test_loader = split_imbalance_data_reward(dataset, batch_size, train_rate, 0.1, 0.1)
+
+    else:
+        train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size, train_rate, 0.1, 0.1)
 
     for seed in range(seedrange):
         # set random seed for training
@@ -95,6 +88,7 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         data = dataset[0].to(device)
         print("data: ", data)
+        print("data size:", len(data))
 
         model = initialize_model(model_index=args.model_index,
                                  gnn_nodes=args.gnn_nodes,
@@ -102,13 +96,15 @@ if __name__ == '__main__':
                                  pred_nodes=args.predictor_nodes,
                                  nf_size=nf_size,
                                  ef_size=ef_size,
-                                 device=device)
+                                 device=device,
+                                 output_size=2 if y_select == 'reg_both' else 1)
         # print("model: ",model)
 
         postfix = str(ncomp) if device.type == 'cuda' else '_cpu'
-        pt_filename = y_select + postfix + 'model' + str(model_index) + \
-                      str(gnn_layers) + 'layers' + str(gnn_nodes) + 'nodes' + \
-                      str(ncomp) + 'comp' + '.pt'
+        #        pt_filename = y_select + postfix + 'model' + str(model_index) + \
+        #                    str(gnn_layers) + 'layers' + str(gnn_nodes) + 'nodes' + \
+        #                      str(ncomp) + 'comp' + '.pt'
+        pt_filename = y_select + '-' + str(model_index) + '-' + str(ncomp) + '.pt'
 
         if os.path.exists(pt_filename) and retrain == 0:
             print('loading model from pt file')
@@ -131,9 +127,8 @@ if __name__ == '__main__':
                                                gnn_layers=gnn_layers)
 
             # save model and test data
-            torch.save((model.state_dict(), test_loader), y_select + '_' + str(model_index) + 'Mod_' + \
-                       str(gnn_layers) + 'layers_' + str(gnn_nodes) + 'nodes_' + \
-                       str(ncomp) + 'comp' + '.pt')
+            torch.save((model.state_dict(), test_loader),
+                       './pt/' + y_select + '-' + str(seed) + '-' + str(ncomp) + '.pt')
 
         final_rse, rse_bins = test(test_loader=test_loader, model=model, num_node=nnode, model_index=args.model_index,
                                    device=device, gnn_layers=args.gnn_layers)
@@ -142,7 +137,7 @@ if __name__ == '__main__':
         final_result.append([model_index, ncomp, y_select, gnn_layers, gnn_nodes,
                              min_loss, mean_loss, final_rse, rse_bins[0], rse_bins[1], rse_bins[2]])
 
-    with open(output_file + '.csv', 'w') as f:
+    with open('./log/result-' + output_file + '.csv', 'w') as f:
         csv_writer = csv.writer(f)
         header = ['model_index', 'n_comp', 'y_select', 'gnn_layers', 'gnn_nodes',
                   'min_loss', 'mean_loss', 'final_rse', 'mse[0-0.3]', 'mse[0.3-0.7]', 'mse[0.7-1]']
