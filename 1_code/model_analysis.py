@@ -1,17 +1,11 @@
-import csv
-import os
-import sys
-
-import torch
-
-from get_transformer_reward import *
+from TransformerGP.get_transformer_reward import *
+from AnalyticModel.get_analytic_reward import *
 from ml_utils import initialize_model
 import numpy as np
-import argparse
 
 from arguments import get_args
 from reward_fn import compute_batch_reward
-from topo_data import Autopo, split_balance_data
+from topo_data import Autopo
 from data_preprocessing import *
 
 
@@ -182,28 +176,45 @@ def get_gnn_single_data_reward(dataset, num_node, model_index, device, gnn_layer
 
 # def analyze_analytic(sweep, ):
 
+def correct_expression_dict(outer_expression_dict):
+    for k, v in outer_expression_dict.items():
+        if v['Expression'] !='invalid' and len(v['Expression']) == 1:
+            for k in v['Expression']:
+                key =k
+            v['Expression'] = v['Expression'][key]
+    return outer_expression_dict
 
 def analyze_analytic(sweep, num_component, dataset, klist, target_vout=50, output_folder='results'):
     analytic_rewards = []
     sim_rewards = []
-
+    outer_expression_dict = json.load(open('no-sweep-analytic-expression.json'))
+    outer_expression_dict = correct_expression_dict(outer_expression_dict)
+    # key+$+'[C,L]': {'Expression': expression,'duty cycle':{'Efficiency':efficiency, 'Vout':vout}}
+    pre_expression_length = len(outer_expression_dict)
     if sweep:
-        _, anal_sweep_rewards = generate_anal_sweep_dataset(dataset=dataset, target_vout=50)
+        anal_sweep_data, anal_sweep_rewards, outer_expression_dict = \
+            generate_anal_sweep_prediction(dataset, target_vout, outer_expression_dict)
         analytic_rewards = list(anal_sweep_rewards.values())
+
         _, sim_sweep_rewards = generate_sweep_dataset(dataset=dataset, target_vout=50)
         sim_rewards = list(sim_sweep_rewards.values())
     else:
+        anal_sweep_rewards, outer_expression_dict = \
+            generate_anal_not_sweep_prediction(dataset, target_vout, outer_expression_dict)
+
         for key_para, topo_info in dataset.items():
-            analytic_reward = calculate_reward(effi={'efficiency': topo_info['eff_analytic'],
-                                                     'output_voltage': topo_info['vout_analytic']},
-                                               target_vout=target_vout)
-            analytic_rewards.append(analytic_reward)
             sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
                                                 'output_voltage': topo_info['vout']}, target_vout=target_vout)
             sim_rewards.append(sim_reward)
+    # rewrite expression dict to json
+    if len(outer_expression_dict) > pre_expression_length:
+        with open('no-sweep-analytic-expression.json', 'w') as f:
+            json.dump(outer_expression_dict, f)
+            f.close()
     results = {}
     output_file = 'analytic.csv'
     for eval_k in klist:
+        print('getting result of threshold: ', eval_k)
         results[eval_k] = evaluate_top_K(analytic_rewards, sim_rewards, k=eval_k)
     write_results_to_csv_file(output_folder + output_file, results)
     return results
@@ -491,23 +502,31 @@ if __name__ == '__main__':
     # ======================== Arguments ==========================#
 
     args = get_args()
-    dataset = json.load(open('./datasets/dataset_3.json'))
+    # dataset = json.load(open('./datasets/dataset_3.json'))
+    dataset = json.load(open('./datasets/dataset_5.json'))
+    split_data_set = {}
+
+    idx = 0
+    for k, v in dataset.items():
+        if args.split_start <= idx < args.split_end:
+            split_data_set[k] = v
+        idx += 1
 
     results_to_save = {}
 
-    klist = [i for i in range(1, 1+int(len(dataset)/5))]
+    klist = [i for i in range(1, 1+int(len(split_data_set)))]
     result_folder = './results/'+str(args.num_component)+'comp/'
 
     gnn_results = analyze_gnn(sweep=args.sweep, num_component=args.num_component,
                               args=args,
-                              dataset=dataset, klist=klist, output_folder=result_folder+'gnn/')
+                              dataset=split_data_set, klist=klist, output_folder=result_folder+'gnn/')
     #
     # test transformer
     # transformer_results = analyze_transformer(sweep=args.sweep, num_component=args.num_component, eff_model_seed=6,
     #                                           vout_model_seed=4, dataset=dataset,
     #                                           klist=klist, output_folder=result_folder)
     # analytic
-    # analytic_results = analyze_analytic(sweep=args.sweep, num_component=args.num_component, dataset=dataset,
+    # analytic_results = analyze_analytic(sweep=args.sweep, num_component=args.num_component, dataset=split_data_set,
     #                                     klist=klist, output_folder=result_folder)
 
     '''

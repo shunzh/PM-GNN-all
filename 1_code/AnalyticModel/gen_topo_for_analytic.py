@@ -14,7 +14,7 @@ import csv
 import numpy as np
 from ast import literal_eval
 
-from utils_new.graphUtils import indexed_graph_to_adjacency_matrix, adj_matrix_to_graph, \
+from AnalyticModel.utils_new.graphUtils import indexed_graph_to_adjacency_matrix, adj_matrix_to_graph, \
     graph_to_adjacency_matrix, \
     nodes_and_edges_to_adjacency_matrix, adj_matrix_to_edges
 

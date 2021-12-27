@@ -3,7 +3,7 @@ import warnings
 from lcapy import Circuit
 import json
 
-from gen_topo_for_analytic import *
+from AnalyticModel.gen_topo_for_analytic import *
 from utils import *
 
 
@@ -304,18 +304,86 @@ def get_prediction_from_topo_info(list_of_node, list_of_edge, net_list, param, t
     parameters = json.load(open("./param.json"))
     fix_paras = {'Duty_Cycle': [param[0]], 'C': [param[1]], 'L': [param[2]]}
     parameters = assign_DC_C_and_L_in_param(param=parameters, fix_paras=fix_paras)
-    effi = -1, vout = -500, reward = 0
+    effi, vout, reward = -1, -500, 0
 
     if not expression:
         # generate the expression using topo information
         key = key_circuit_from_lists(edge_list=list_of_edge, node_list=list_of_node, net_list=net_list)
         circuit_info = get_one_circuit(key=key, net_list=net_list, parameters=parameters)
         expression = get_one_expression(circuit_info=circuit_info)
+        print(expression)
     # effi_vout_info: [fn, duty_cycle, str(vect), vout, effi, flag_candidate, name_list, net_list]
+    if expression == "invalid":
+        return 0, -500, 0, expression
     effi_vout_info = get_analytics_result(expression=expression, parameters=parameters)
 
     if effi_vout_info:
-        effi = effi_vout_info[4], vout = effi_vout_info[3]
+        effi, vout = effi_vout_info[4], effi_vout_info[3]
         reward = calculate_reward(effi={'efficiency': effi, 'output_voltage': vout},
                                   target_vout=target_vout)
     return effi, vout, reward, expression
+
+
+def generate_anal_not_sweep_prediction(dataset, target_vout, outer_expression_dict):
+    """
+    @param outer_expression_dict:
+    @param dataset:
+    @param target_vout:
+    @return:
+    """
+    anal_sweep_rewards = {}
+    anal_sweep_data = {}
+    for key_para, topo_info in dataset.items():
+
+        key = key_para.split('$')[0]
+        expression = None
+        if key + '$' + '[10, 100]' in outer_expression_dict:
+            expression = outer_expression_dict[key + '$' + '[10, 100]']['Expression']
+        effi, vout, analytic_reward, expression = \
+            get_prediction_from_topo_info(list_of_node=topo_info['list_of_node'],
+                                          list_of_edge=topo_info['list_of_edge'],
+                                          net_list=topo_info['net_list'], param=[topo_info['duty_cycle'], 10, 100],
+                                          target_vout=target_vout, expression=expression)
+        if key + '$' + '[10, 100]' not in outer_expression_dict:
+            outer_expression_dict[key + '$' + '[10, 100]'] = {'Expression': expression}
+        if str(topo_info['duty_cycle']) not in outer_expression_dict:
+            outer_expression_dict[key + '$' + '[10, 100]'][str(topo_info['duty_cycle'])] = {'Efficiency': effi,
+                                                                                            'Vout': vout}
+
+
+        anal_sweep_rewards[key_para] = analytic_reward
+    return anal_sweep_rewards, outer_expression_dict
+
+
+def generate_anal_sweep_prediction(dataset, target_vout, outer_expression_dict):
+    """
+    @param outer_expression_dict:
+    @param dataset:
+    @param target_vout:
+    @return:
+    """
+    anal_sweep_rewards = {}
+    anal_sweep_data = {}
+    for key_para, topo_info in dataset.items():
+
+        key = key_para.split('$')[0]
+        print(key, '\n', key_para.split('$')[1])
+        expression = None
+        if key + '$' + '[10, 100]' in outer_expression_dict:
+            expression = outer_expression_dict[key + '$' + '[10, 100]']['Expression']
+        effi, vout, analytic_reward, expression = \
+            get_prediction_from_topo_info(list_of_node=topo_info['list_of_node'],
+                                          list_of_edge=topo_info['list_of_edge'],
+                                          net_list=topo_info['netlist'], param=[topo_info['duty_cycle'], 10, 100],
+                                          target_vout=target_vout, expression=expression)
+        if key + '$' + '[10, 100]' not in outer_expression_dict:
+            outer_expression_dict[key + '$' + '[10, 100]'] = {'Expression': expression}
+        if str(topo_info['duty_cycle']) not in outer_expression_dict:
+            outer_expression_dict[key + '$' + '[10, 100]'][str(topo_info['duty_cycle'])] = {'Efficiency': effi,
+                                                                                            'Vout': vout}
+
+        if (key not in anal_sweep_rewards) or (analytic_reward > anal_sweep_rewards[key]):
+            anal_sweep_rewards[key] = analytic_reward
+            anal_sweep_data[key] = topo_info
+    print('sweep length: ', len(anal_sweep_data), ' dataset length /5 : ', int(len(dataset) / 5))
+    return anal_sweep_data, anal_sweep_rewards, outer_expression_dict

@@ -16,12 +16,15 @@ def get_args():
 
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-n_epoch', type=int, default=100, help='number of training epoch')
-    parser.add_argument('-gnn_nodes', type=int, default=20, help='number of nodes in hidden layer in GNN')
+    parser.add_argument('-gnn_nodes', type=int, default=40, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=10,
                         help='number of MLP predictor nodes at output of GNN')
-    parser.add_argument('-gnn_layers', type=int, default=2, help='number of layer')
-    parser.add_argument('-model_index', type=int, default=1, help='model index')
-    parser.add_argument('--nnode', type=int, default=7, help='number of node')
+    parser.add_argument('-gnn_layers', type=int, default=4, help='number of layer')
+    parser.add_argument('-model_index', type=int, default=3, help='model index')
+    parser.add_argument('--nnode', type=int, default=8, help='number of node')
+
+    parser.add_argument('-split_start', type=int, default=0, help='split_start')
+    parser.add_argument('-split_end', type=int, default=1000, help='split_end')
 
     parser.add_argument('-eff_model', type=str, default='reg_eff_4Mod_2layers_20nodes_3comp.pt', help='eff model file name')
     parser.add_argument('-vout_model', type=str, default='reg_vout_4Mod_2layers_20nodes_3comp.pt', help='vout model file name')
