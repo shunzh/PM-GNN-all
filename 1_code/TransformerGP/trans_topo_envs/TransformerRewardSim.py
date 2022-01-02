@@ -202,7 +202,7 @@ class TransformerRewardSim(SurrogateRewardTopologySim):
         if state is not None:
             self.set_state(state)
 
-        return np.clip(50 * self.get_transformer_predict(self.vout_models.model, self.vout_models.gp), 0., 50.)
+        return 100 * np.clip(self.get_transformer_predict(state, self.vout_models.model, self.vout_models.gp), 0., 1.)
 
     def get_surrogate_eff_with_topo_info(self, node_list, edge_list, state=None):
         if state is not None:
@@ -221,10 +221,10 @@ class TransformerRewardSim(SurrogateRewardTopologySim):
         if (not node_list) and (not edge_list):
             node_list, edge_list = self.current.get_nodes_and_edges()
 
-        return np.clip(50 * self.get_transformer_predict_with_topo_info(node_list=node_list, edge_list=edge_list,
-                                                                        model=self.vout_models.model,
-                                                                        gp=self.vout_models.gp),
-                       0., 50.)
+        return 100 * np.clip(self.get_transformer_predict_with_topo_info(node_list=node_list, edge_list=edge_list,
+                                                                         model=self.vout_models.model,
+                                                                         gp=self.vout_models.gp),
+                             0., 1.)
 
     def get_surrogate_eff_std(self, state=None):
         if state is not None:
@@ -236,4 +236,4 @@ class TransformerRewardSim(SurrogateRewardTopologySim):
         if state is not None:
             self.set_state(state)
 
-        return 50 * self.get_transformer_predict(self.vout_models.model, self.vout_models.gp, need_std=True)
+        return 100 * self.get_transformer_predict(self.vout_models.model, self.vout_models.gp, need_std=True)

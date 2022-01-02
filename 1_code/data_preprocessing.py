@@ -1,6 +1,22 @@
 import json
+import random
+
 from utils import *
 import os
+
+
+def random_dic(dicts):
+    '''
+    random the dict
+    @param dicts:
+    @return:
+    '''
+    dict_key_ls = list(dicts.keys())
+    random.shuffle(dict_key_ls)
+    new_dic = {}
+    for key in dict_key_ls:
+        new_dic[key] = dicts[key]
+    return new_dic
 
 
 def generate_sweep_dataset(dataset, target_vout):
@@ -62,6 +78,7 @@ def generate_dataset_for_gnn_max_reward_prediction(dataset, target_vout):
         if (max_reward_key_para not in max_reward_sweep_rewards) or \
                 (sim_reward > max_reward_sweep_rewards[max_reward_key_para]):
             max_reward_sweep_rewards[max_reward_key_para] = sim_reward
+        # TODO: actually current dataset does not include all the 5 components, so need add missing data in the dataset
         if key_para == max_reward_key_para:
             max_reward_sweep_data[max_reward_key_para] = topo_info
     assert (len(max_reward_sweep_data) == int(len(dataset) / 5))
@@ -71,7 +88,8 @@ def generate_dataset_for_gnn_max_reward_prediction(dataset, target_vout):
 
 def generate_single_data_file(key_para, topo_info, single_data_path, ncomp):
     '''
-
+    For gnn prediction. gnn must read from file to get the prediction(Auto). Thus every time we write a single topology
+    +para information to ./datasets/single_data_datasets/2_row_dataset'
     @param key_para:
     @param topo_info:
     @param single_data_path:
@@ -87,29 +105,6 @@ def generate_single_data_file(key_para, topo_info, single_data_path, ncomp):
     f.close()
 
 
-def dataset_statistic(dataset, target_vout=50):
-    """
-    note that if run this, may need to disable the assert about length of sweeped data in generate_sweep_dataset
-    @param dataset:
-    @return:
-    """
-    count_static = {}
-    sim_sweep_data, sim_sweep_rewards = generate_sweep_dataset(dataset=dataset, target_vout=target_vout)
-    print(len(sim_sweep_data))
-    combination_count_mapping = {}
-    for key, topo_info in sim_sweep_data.items():
-        if sim_sweep_rewards[key] > 0.5:
-            component_count = {'Sa': 0, 'Sb': 0, 'C': 0, 'L': 0}
-            for component in topo_info['list_of_node']:
-                if type(component) == str:
-                    for component_type in component_count:
-                        if component_type in component:
-                            component_count[component_type] += 1
-            print(component_count)
-            count_str = str(component_count)
-            if count_str not in count_static:
-                count_static[count_str] = 1
-            else:
-                count_static[count_str] += 1
-    for k, v in count_static.items():
-        print(k, ' ', v)
+
+
+

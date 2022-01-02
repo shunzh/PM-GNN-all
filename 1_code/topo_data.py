@@ -47,7 +47,7 @@ class Autopo(InMemoryDataset):
 
         tmp = {}
 
-        max_nodes = 7
+        max_nodes = 8
 
         empty_node = [0, 0, 0, 0]
         empty_edge = [0, 0, 0]

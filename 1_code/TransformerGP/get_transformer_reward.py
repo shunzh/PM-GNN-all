@@ -6,7 +6,7 @@ import torch
 from utils import *
 
 
-def get_sweep_prediction_from_topo_info(sim, list_of_node, list_of_edge, candidate_params, target_vout=50):
+def metric_get_trans_sweep_prediction_from_topo_info(sim, list_of_node, list_of_edge, candidate_params, target_vout=50):
     """
 
     @param candidate_params: [candidate params]} that represent a topology and set of candidate parameters
@@ -32,7 +32,7 @@ def get_sweep_prediction_from_topo_info(sim, list_of_node, list_of_edge, candida
     return max_reward, max_effi, max_vout
 
 
-def get_prediction_from_topo_info(sim, list_of_node, list_of_edge, param, target_vout=50):
+def metric_get_trans_prediction_from_topo_info(simulator, list_of_node, list_of_edge, param, target_vout=50):
     """
     get the prediction of a topology with list information and parameter
     @param sim:
@@ -46,8 +46,8 @@ def get_prediction_from_topo_info(sim, list_of_node, list_of_edge, param, target
     fix_paras = {'Duty_Cycle': [param[0]], 'C': [param[1]], 'L': [param[2]]}
     parameters = assign_DC_C_and_L_in_param(param=parameters, fix_paras=fix_paras)
 
-    effi = sim.get_surrogate_eff_with_topo_info(node_list=list_of_node, edge_list=list_of_edge)
-    vout = sim.get_surrogate_vout_with_topo_info(node_list=list_of_node, edge_list=list_of_edge)
+    effi = simulator.get_surrogate_eff_with_topo_info(node_list=list_of_node, edge_list=list_of_edge)
+    vout = simulator.get_surrogate_vout_with_topo_info(node_list=list_of_node, edge_list=list_of_edge)
     reward = calculate_reward(effi={'efficiency': effi, 'output_voltage': vout},
                               target_vout=target_vout)
     return reward, effi, vout
@@ -70,10 +70,10 @@ def init_transformer_sim(num_component, sim_configs, eff_model_seed, vout_model_
     from trans_topo_envs.TransformerRewardSim import TransformerRewardSimFactory
     dir = os.path.dirname(__file__)
     factory = TransformerRewardSimFactory(
-        eff_model_file=os.path.join(dir, 'transformer_SVGP/save_model/batch_gp_eff_'+str(eff_model_seed)+'.pt'),
-        vout_model_file=os.path.join(dir, 'transformer_SVGP/save_model/batch_gp_vout_'+str(vout_model_seed)+'.pt'),
-        vocab_file=os.path.join(dir, 'transformer_SVGP/vocab.json'),
-        dev_file=os.path.join(dir, 'transformer_SVGP/data_test.json'),
+        eff_model_file=os.path.join(dir, 'transformer_SVGP/save_model/5_comp_eff_'+str(eff_model_seed)+'.pt'),
+        vout_model_file=os.path.join(dir, 'transformer_SVGP/save_model/5_comp_vout_'+str(vout_model_seed)+'.pt'),
+        vocab_file=os.path.join(dir, 'transformer_SVGP/dataset_5_vocab.json'),
+        dev_file=os.path.join(dir, 'transformer_SVGP/dataset_5_dev.json'),
         device=device, eff_model_seed=eff_model_seed, vout_model_seed=vout_model_seed,
         epoch=epoch, patience=patience, sample_ratio=1)
     sim_init = factory.get_sim_init()

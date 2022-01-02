@@ -7,86 +7,12 @@ from arguments import get_args
 from reward_fn import compute_batch_reward
 from topo_data import Autopo
 from data_preprocessing import *
+from metrics import *
+from dataset_processing import *
 
 
-def evaluate_top_K(preds, ground_truth, k, threshold=0.6):
-    """
-    :param preds: a list of surrogate model predictions
-    :param ground_truth: a list of ground-truth values (e.g. by the simulator)
-    :return: statistical analysis of the top-k topologies
-
-            {'max': the maximum true reward in the top-k topologies predicted by the surrogate model
-             'mean': the mean value of above,
-             'std': the standard deviation of above,
-             'precision': out of all of top-k topologies, how many of them are above the threshold,
-             'recall': out of all of topologies above the threshold, how many of them are in the top-k topologies
-            }
-    """
-    preds = np.array(preds)
-    ground_truth = np.array(ground_truth)
-
-    # evaluate top-k
-    top_k_indices = preds.argsort()[-k:]
-
-    # the ground truth values of these candidates
-    ground_truth_of_top_k = ground_truth[top_k_indices]
-
-    stats = {'max': max(ground_truth_of_top_k),
-             'mean': np.mean(ground_truth_of_top_k),
-             'std': np.std(ground_truth_of_top_k),
-             # out of all of top-k topologies, how many of them are above the threshold
-             'precision': len([x for x in ground_truth_of_top_k if x > threshold]) / k,
-             # out of all of topologies above the threshold, how many of them are in the top-k topologies
-             'recall': len([x for x in ground_truth_of_top_k if x > threshold]) /
-                       (len([x for x in ground_truth if x > threshold]) + 1e-3)
-             }
-
-    return stats
 
 
-def evaluate_bottom_K(preds, ground_truth, k, threshold=0.4):
-    """
-    :param preds: a list of surrogate model predictions
-    :param ground_truth: a list of ground-truth values (e.g. by the simulator)
-    :return: statistical analysis of the top-k topologies, in the same format as evaluate_top_K
-    """
-    preds = np.array(preds)
-    ground_truth = np.array(ground_truth)
-
-    # get the ones with the highest surrogate rewards
-    bottom_k_indices = preds.argsort()[:k]
-
-    # the ground truth values of these candidates
-    ground_truth_of_bottom_k = ground_truth[bottom_k_indices]
-
-    stats = {'max': max(ground_truth_of_bottom_k),
-             'mean': np.mean(ground_truth_of_bottom_k),
-             'std': np.std(ground_truth_of_bottom_k),
-             # out of all of top-k topologies, how many of them are BELOW the threshold
-             'precision': len([x for x in ground_truth_of_bottom_k if x < threshold]) / k,
-             # out of all of topologies BELOW the threshold, how many of them are in the BOTTOM-k topologies
-             'recall': len([x for x in ground_truth_of_bottom_k if x < threshold]) /
-                       (len([x for x in ground_truth if x < threshold]) + 1e-3)
-             }
-
-    return stats
-
-
-def top_K_coverage_on_ground_truth(preds, ground_truth, k_pred, k_ground_truth):
-    """
-    Find the top k_pred topologies predicted by the surrogate model, find how out much of top k_ground_truth topologies
-    they can cover.
-    :return: the coverage ratio
-    """
-    preds = np.array(preds)
-    ground_truth = np.array(ground_truth)
-
-    top_k_pred_indices = preds.argsort()[-k_pred:]
-    top_k_gt_indices = ground_truth.argsort()[-k_ground_truth:]
-
-    shared_indices = list(set(top_k_pred_indices) & set(top_k_gt_indices))
-
-    return 1. * len(shared_indices) / k_ground_truth
 
 
 def get_gnn_single_data_reward(dataset, num_node, model_index, device, gnn_layers,
@@ -176,13 +102,6 @@ def get_gnn_single_data_reward(dataset, num_node, model_index, device, gnn_layer
 
 # def analyze_analytic(sweep, ):
 
-def correct_expression_dict(outer_expression_dict):
-    for k, v in outer_expression_dict.items():
-        if v['Expression'] !='invalid' and len(v['Expression']) == 1:
-            for k in v['Expression']:
-                key =k
-            v['Expression'] = v['Expression'][key]
-    return outer_expression_dict
 
 def analyze_analytic(sweep, num_component, dataset, klist, target_vout=50, output_folder='results'):
     analytic_rewards = []
@@ -211,13 +130,19 @@ def analyze_analytic(sweep, num_component, dataset, klist, target_vout=50, outpu
         with open('no-sweep-analytic-expression.json', 'w') as f:
             json.dump(outer_expression_dict, f)
             f.close()
-    results = {}
+    k_results, n_results = {}, {}
     output_file = 'analytic.csv'
     for eval_k in klist:
         print('getting result of threshold: ', eval_k)
-        results[eval_k] = evaluate_top_K(analytic_rewards, sim_rewards, k=eval_k)
-    write_results_to_csv_file(output_folder + output_file, results)
-    return results
+        k_results[eval_k] = evaluate_top_K(analytic_rewards, sim_rewards, k=eval_k)
+    write_results_to_csv_file(output_folder + output_file, k_results)
+    for eval_k in klist:
+        for i in range(1, len(analytic_rewards)):
+            print(analytic_rewards[:i])
+            print(sim_rewards[:i])
+            n_results[i] = evaluate_top_K(analytic_rewards[:i], sim_rewards[:i], k=eval_k)
+        write_results_to_csv_file(output_folder + 'diff_n_' + str(eval_k) + '_' + output_file, n_results)
+    return k_results, n_results, analytic_rewards, sim_rewards
 
 
 def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, dataset, klist, target_vout=50,
@@ -237,10 +162,12 @@ def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, d
         sim_rewards = list(sim_sweep_rewards.values())
         for key_para, topo_info in dataset.items():
             transformer_reward, transformer_effi, transformer_vout = \
-                get_prediction_from_topo_info(sim=sim,
-                                              list_of_node=topo_info['list_of_node'],
-                                              list_of_edge=topo_info['list_of_edge'],
-                                              param=[0.1, 10, 100])
+                metric_get_trans_prediction_from_topo_info(simulator=sim,
+                                                           list_of_node=topo_info['list_of_node'],
+                                                           list_of_edge=topo_info['list_of_edge'],
+                                                           param=[0.1, 10, 100])
+            if transformer_vout > 1:
+                print(transformer_vout)
             key = key_para.split('$')[0]
             if (key not in transformer_rewards) or (transformer_reward >= transformer_rewards[key]):
                 transformer_sweep_rewards[key] = transformer_reward
@@ -253,10 +180,10 @@ def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, d
 
         for key_para, topo_info in dataset.items():
             transformer_reward, transformer_effi, transformer_vout = \
-                get_prediction_from_topo_info(sim=sim,
-                                              list_of_node=topo_info['list_of_node'],
-                                              list_of_edge=topo_info['list_of_edge'],
-                                              param=[0.1, 10, 100])
+                metric_get_trans_prediction_from_topo_info(simulator=sim,
+                                                           list_of_node=topo_info['list_of_node'],
+                                                           list_of_edge=topo_info['list_of_edge'],
+                                                           param=[0.1, 10, 100])
             transformer_rewards.append(transformer_reward)
             sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
                                                 'output_voltage': topo_info['vout']}, target_vout=target_vout)
@@ -264,12 +191,19 @@ def analyze_transformer(sweep, num_component, eff_model_seed, vout_model_seed, d
             t -= 1
             if t % 500 == 0:
                 print(t, ' remaining')
-    results = {}
+    k_results, n_results = {}, {}
+    output_file = 'transformer.csv'
     for eval_k in klist:
-        results[eval_k] = evaluate_top_K(transformer_rewards, sim_rewards, k=eval_k)
-    output_file = 'tansformer.csv'
-    write_results_to_csv_file(output_folder + output_file, results)
-    return results
+        print('getting result of threshold: ', eval_k)
+        k_results[eval_k] = evaluate_top_K(transformer_rewards, sim_rewards, k=eval_k)
+    write_results_to_csv_file(output_folder + output_file, k_results)
+    for eval_k in klist:
+        for i in range(1, len(transformer_rewards)):
+            print(transformer_rewards[:i])
+            print(sim_rewards[:i])
+            n_results[i] = evaluate_top_K(transformer_rewards[:i], sim_rewards[:i], k=eval_k)
+        write_results_to_csv_file(output_folder + 'diff_n_' + str(eval_k) + '_' + output_file, n_results)
+    return k_results, n_results, transformer_rewards, sim_rewards
 
 
 def clear_files(save_data_folder, raw_data_folder, ncomp):
@@ -321,7 +255,6 @@ def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, outp
     # ======================== Data & Model ==========================#
     nf_size = 4
     ef_size = 3
-    nnode = 7
     # single_data_folder = './datasets/single_data_datasets/2_row_dataset'
     # single_data_path = './datasets/single_data_datasets'
 
@@ -414,6 +347,8 @@ def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, outp
         sim_sweep_data, sim_sweep_rewards = generate_sweep_dataset(dataset=dataset, target_vout=50)
         sim_rewards = list(sim_sweep_rewards.values())
         gnn_sweep_rewards = {}
+        # note that, if we want to test the model that predict the max reward of a topology, we need to append
+        # 'only_max' into the model name
         if (args.reward_model is not None) and ('only_max' in args.reward_model):
             gnn_dataset, _ = generate_dataset_for_gnn_max_reward_prediction(dataset=dataset, target_vout=50)
         else:
@@ -425,13 +360,15 @@ def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, outp
             generate_single_data_file(key_para=key_para, topo_info=topo_info,
                                       single_data_path=args.single_data_path, ncomp=args.num_component)
             if topo_info_valid(topo_info=topo_info):
+                # if nn_node change, this must be changed too
                 auto_dataset = Autopo(args.single_data_folder, args.single_data_path, args.y_select, args.num_component)
                 gnn_reward = get_gnn_single_data_reward(dataset=auto_dataset, eff_model=eff_model,
                                                         vout_model=vout_model,
                                                         eff_vout_model=eff_vout_model, reward_model=reward_model,
                                                         cls_vout_model=cls_vout_model,
-                                                        num_node=nnode, model_index=args.model_index,
+                                                        num_node=args.nnode, model_index=args.model_index,
                                                         gnn_layers=args.gnn_layers, device=device)
+                gnn_reward = gnn_reward.item()
             else:
                 gnn_reward = 0
             key = key_para.split('$')[0]
@@ -458,10 +395,12 @@ def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, outp
                                                         vout_model=vout_model,
                                                         eff_vout_model=eff_vout_model, reward_model=reward_model,
                                                         cls_vout_model=cls_vout_model,
-                                                        num_node=nnode, model_index=args.model_index,
+                                                        num_node=args.nnode, model_index=args.model_index,
                                                         gnn_layers=args.gnn_layers, device=device)
+                gnn_reward = gnn_reward.item()
             else:
                 gnn_reward = 0
+
             gnn_rewards.append(gnn_reward)
             sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
                                                 'output_voltage': topo_info['vout']}, target_vout=target_vout)
@@ -472,10 +411,17 @@ def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, outp
             if t % 500 == 0:
                 print(t, ' remaining')
     results = {}
+    k_results, n_results = {}, {}
     for eval_k in klist:
-        results[eval_k] = evaluate_top_K(gnn_rewards, sim_rewards, k=eval_k)
-    write_results_to_csv_file(output_folder+output_file, results)
-    return results
+        k_results[eval_k] = evaluate_top_K(gnn_rewards, sim_rewards, k=eval_k)
+    write_results_to_csv_file(output_folder + 'diff_k_' + output_file, k_results)
+    for eval_k in klist:
+        for i in range(1, len(gnn_rewards)):
+            print(gnn_rewards[:i])
+            print(sim_rewards[:i])
+            n_results[i] = evaluate_top_K(gnn_rewards[:i], sim_rewards[:i], k=eval_k)
+        write_results_to_csv_file(output_folder + 'diff_n_' + str(eval_k) + '_' + output_file, n_results)
+    return k_results, n_results, gnn_rewards, sim_rewards
 
 
 def write_results_to_csv_file(file_name, results):
@@ -498,6 +444,7 @@ def write_results_to_csv_file(file_name, results):
         csv_writer.writerows(output_for_ks)
     f.close()
 
+
 if __name__ == '__main__':
     # ======================== Arguments ==========================#
 
@@ -507,31 +454,59 @@ if __name__ == '__main__':
     split_data_set = {}
 
     idx = 0
+    class_number = 20
     for k, v in dataset.items():
         if args.split_start <= idx < args.split_end:
             split_data_set[k] = v
         idx += 1
 
     results_to_save = {}
+    random.seed(1)
+    # split_data_set = random_dic(split_data_set)
+    # random_dataset_with_key(split_data_set)
 
-    klist = [i for i in range(1, 1+int(len(split_data_set)))]
-    result_folder = './results/'+str(args.num_component)+'comp/'
+    # klist = [i for i in range(1, 1 + int(len(split_data_set)))]
+    klist = [i for i in [1, 3, 5, 10, 20, 50, 100, 200]]
+    result_folder = './results/' + str(args.num_component) + 'comp/'
+    verification_folder = result_folder + 'verification/'
 
-    gnn_results = analyze_gnn(sweep=args.sweep, num_component=args.num_component,
-                              args=args,
-                              dataset=split_data_set, klist=klist, output_folder=result_folder+'gnn/')
+    # note that, if we want to test the model that predict the max reward of a topology, we need to append
+    # 'only_max' into the model name
+    # k_gnn_results, n_gnn_results, gnn_rewards, sim_rewards = analyze_gnn(sweep=args.sweep,
+    #                                                                      num_component=args.num_component,
+    #                                                                      args=args,
+    #                                                                      dataset=split_data_set, klist=klist,
+    #                                                                      output_folder=result_folder + 'gnn/')
     #
+    # save_verification_results(result_folder=verification_folder, model_name='gnn', pred_rewards=gnn_rewards,
+    #                           ground_truth=sim_rewards, ground_truth_name='sim',
+    #                           dataset_size=len(split_data_set), class_number=class_number)
     # test transformer
-    # transformer_results = analyze_transformer(sweep=args.sweep, num_component=args.num_component, eff_model_seed=6,
-    #                                           vout_model_seed=4, dataset=dataset,
-    #                                           klist=klist, output_folder=result_folder)
+    k_transformer_results, n_transformer_results, transformer_rewards, sim_rewards = analyze_transformer(
+        sweep=args.sweep,
+        num_component=args.num_component,
+        eff_model_seed=args.transformer_eff_model_seed,
+        vout_model_seed=args.transformer_vout_model_seed,
+        dataset=split_data_set,
+        klist=klist,
+        output_folder=result_folder)
+
+    save_verification_results(result_folder=verification_folder, model_name='transformer',
+                              pred_rewards=transformer_rewards, ground_truth=sim_rewards, ground_truth_name='sim',
+                              dataset_size=len(split_data_set), class_number=class_number)
+
     # analytic
-    # analytic_results = analyze_analytic(sweep=args.sweep, num_component=args.num_component, dataset=split_data_set,
-    #                                     klist=klist, output_folder=result_folder)
+    # k_analytic_results, n_analytic_results, analytic_rewards, sim_rewards = analyze_analytic(sweep=args.sweep,
+    #                                                                                          num_component=args.num_component,
+    #                                                                                          dataset=split_data_set,
+    #                                                                                          klist=klist,
+    #                                                                                          output_folder=result_folder)
+    # save_verification_results(result_folder=verification_folder, model_name='anal', pred_rewards=analytic_rewards,
+    #                           ground_truth=sim_rewards, ground_truth_name='sim',
+    #                           dataset_size=len(split_data_set), class_number=class_number)
 
     '''
     5 component component combination analysis
     dataset = json.load(open('./datasets/dataset_5.json'))
     dataset_statistic(dataset, 50)
     '''
-
