@@ -23,3 +23,20 @@ def assign_DC_C_and_L_in_param(param, fix_paras):
     param['C'] = fix_paras['C']
     param['L'] = fix_paras['L']
     return param
+
+def topo_info_valid(topo_info):
+    list_of_edge = topo_info["list_of_edge"]
+
+    edge_attr = topo_info["edge_attr"]
+    node_attr = topo_info["node_attr"]
+
+    if topo_info["vout"] / 100 > 1 or topo_info["vout"] / 100 < 0:
+        # print(topo_info)
+        return False
+    if topo_info["vout"] == -1:
+        return False
+    if topo_info["eff"] < 0 or topo_info["eff"] > 1:
+        # print(topo_info)
+        return False
+    return True
+

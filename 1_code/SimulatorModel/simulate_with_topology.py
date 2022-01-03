@@ -53,7 +53,17 @@ def simulate_one_analytics_result(analytics_info):
         return result_dict
 
 
-def get_single_sim_result_with_topo_info(list_of_node, list_of_edge, netlist, para, key_sim_effi_, target_vout):
+def get_single_sim_result_with_topo_info(list_of_node, list_of_edge, netlist, para, key_sim_effi_, target_vout=50):
+    '''
+
+    @param list_of_node:
+    @param list_of_edge:
+    @param netlist:
+    @param para: [DC, C, L]
+    @param key_sim_effi_: simulator hash table
+    @param target_vout:
+    @return:
+    '''
     effi_info = {}
     topk_max_reward, topk_max_para, topk_max_effi, topk_max_vout = -1, [], 0, 500
 

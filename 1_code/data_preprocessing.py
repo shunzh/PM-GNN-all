@@ -19,6 +19,24 @@ def random_dic(dicts):
     return new_dic
 
 
+def generate_no_sweep_dataset(dataset, target_vout):
+    """
+
+    @param dataset:
+    @param target_vout:
+    @return:
+    """
+    sim_sweep_rewards = {}
+    sim_sweep_data = {}
+    for key_para, topo_info in dataset.items():
+        sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
+                                            'output_voltage': topo_info['vout']}, target_vout=target_vout)
+
+        sim_sweep_rewards[key_para] = sim_reward
+        sim_sweep_data[key_para] = topo_info
+    return sim_sweep_data, sim_sweep_rewards
+
+
 def generate_sweep_dataset(dataset, target_vout):
     """
 
@@ -87,7 +105,7 @@ def generate_dataset_for_gnn_max_reward_prediction(dataset, target_vout):
 
 
 def generate_single_data_file(key_para, topo_info, single_data_path, ncomp):
-    '''
+    """
     For gnn prediction. gnn must read from file to get the prediction(Auto). Thus every time we write a single topology
     +para information to ./datasets/single_data_datasets/2_row_dataset'
     @param key_para:
@@ -95,7 +113,7 @@ def generate_single_data_file(key_para, topo_info, single_data_path, ncomp):
     @param single_data_path:
     @param ncomp:
     @return:
-    '''
+    """
 
     single_data = {key_para: topo_info}
     print('rm ' + single_data_path + "/dataset" + "_" + str(ncomp) + ".json")
@@ -105,6 +123,33 @@ def generate_single_data_file(key_para, topo_info, single_data_path, ncomp):
     f.close()
 
 
+def generate_keys_for_consistent_rewards(sweep, dataset):
+    '''
+
+    @param sweep:
+    @param dataset:
+    @return:
+    '''
+    dataset_key = {}
+    assert isinstance(dataset, dict)
+    keys = dataset.keys()
+    if sweep:
+        for key_para in keys:
+            key = key_para.split('$')[0]
+            dataset_key[key] = 1
+        keys = dataset_key.keys()
+    random.shuffle(keys)
+    return keys
 
 
+def reordered_rewards(rewards_dict, key_order):
+    '''
 
+    @param rewards_dict:
+    @param key_order:
+    @return:
+    '''
+    rewards = []
+    for key in key_order:
+        rewards.append([rewards_dict[key]])
+    return rewards
