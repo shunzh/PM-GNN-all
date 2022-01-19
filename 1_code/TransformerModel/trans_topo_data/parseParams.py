@@ -1,7 +1,7 @@
 import glob
 import json
 
-from config import EXP_DIR, RANDOM_DATA
+from TransformerModel.config import EXP_DIR, RANDOM_DATA
 
 CKI_FILES = EXP_DIR + RANDOM_DATA + '*.cki'
 OUTPUT = 'params.json'

@@ -4,6 +4,7 @@ from lcapy import Circuit
 import json
 
 from AnalyticModel.gen_topo_for_analytic import *
+from data_preprocessing import *
 from utils import *
 
 
@@ -349,8 +350,6 @@ def generate_anal_not_sweep_prediction(dataset, target_vout, outer_expression_di
         if str(topo_info['duty_cycle']) not in outer_expression_dict:
             outer_expression_dict[key + '$' + '[10, 100]'][str(topo_info['duty_cycle'])] = {'Efficiency': effi,
                                                                                             'Vout': vout}
-
-
         anal_sweep_rewards[key_para] = analytic_reward
     return anal_sweep_rewards, outer_expression_dict
 
@@ -369,6 +368,7 @@ def generate_anal_sweep_prediction(dataset, target_vout, outer_expression_dict):
         key = key_para.split('$')[0]
         print(key, '\n', key_para.split('$')[1])
         expression = None
+        # get expression from the outer hash table
         if key + '$' + '[10, 100]' in outer_expression_dict:
             expression = outer_expression_dict[key + '$' + '[10, 100]']['Expression']
         effi, vout, analytic_reward, expression = \
@@ -387,3 +387,24 @@ def generate_anal_sweep_prediction(dataset, target_vout, outer_expression_dict):
             anal_sweep_data[key] = topo_info
     print('sweep length: ', len(anal_sweep_data), ' dataset length /5 : ', int(len(dataset) / 5))
     return anal_sweep_data, anal_sweep_rewards, outer_expression_dict
+
+
+def generate_analytic_rewards(sweep, dataset, key_order, target_vout=50):
+    outer_expression_dict = json.load(open('no-sweep-analytic-expression.json'))
+    # outer_expression_dict = correct_expression_dict(outer_expression_dict)
+    # key+$+'[C,L]': {'Expression': expression,'duty cycle':{'Efficiency':efficiency, 'Vout':vout}}
+    pre_expression_length = len(outer_expression_dict)
+    if sweep:
+        anal_sweep_data, analytic_rewards_dict, outer_expression_dict = \
+            generate_anal_sweep_prediction(dataset, target_vout, outer_expression_dict)
+    else:
+        analytic_rewards_dict, outer_expression_dict = \
+            generate_anal_not_sweep_prediction(dataset, target_vout, outer_expression_dict)
+    # rewrite expression dict to json
+    if len(outer_expression_dict) > pre_expression_length:
+        with open('no-sweep-analytic-expression.json', 'w') as f:
+            json.dump(outer_expression_dict, f)
+            f.close()
+    analytic_rewards = reordered_rewards(key_order=key_order, rewards_dict=analytic_rewards_dict)
+    return analytic_rewards
+

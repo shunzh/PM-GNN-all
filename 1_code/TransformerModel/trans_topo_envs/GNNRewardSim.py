@@ -1,6 +1,6 @@
 import torch
 
-from trans_topo_envs.surrogateRewardSim import SurrogateRewardTopologySim
+from TransformerModel.trans_topo_envs.surrogateRewardSim import SurrogateRewardTopologySim
 
 
 class GNNRewardSim(SurrogateRewardTopologySim):

@@ -1,7 +1,7 @@
 import json
 
-from config import EXP_DIR
-from util.plot import plot_hist
+from TransformerModel.config import EXP_DIR
+from TransformerModel.util import plot_hist
 
 # EXP_DIR is the root the exp directory, e.g. EXP_DIR = '4comp_4000/'
 INPUT = EXP_DIR + 'sim_analysis/analysis_result.txt'

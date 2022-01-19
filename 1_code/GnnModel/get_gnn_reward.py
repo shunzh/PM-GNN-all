@@ -1,4 +1,5 @@
-from TransformerGP.get_transformer_reward import *
+import torch
+# from TransformerModel.get_transformer_reward import *
 from AnalyticModel.get_analytic_reward import *
 from ml_utils import initialize_model
 import numpy as np
@@ -112,7 +113,7 @@ def get_gnn_single_data_reward(dataset, num_node, model_index, device, gnn_layer
     return gnn_reward[0]
 
 
-def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, output_folder='./results/'):
+def init_gnn_models(args):
     '''
 
     @param sweep:
@@ -121,7 +122,6 @@ def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, outp
     @param dataset:
     @return:
     '''
-    args = get_args()
 
     batch_size = args.batch_size
     n_epoch = args.n_epoch
@@ -214,6 +214,7 @@ def analyze_gnn(sweep, num_component, args, dataset, klist, target_vout=50, outp
         eff_model.load_state_dict(eff_model_state_dict)
         output_file = args.eff_model.replace('.pt', '.csv')
 
+    print('finish init model and result are writen in ', output_file)
     return eff_model, vout_model, eff_vout_model, reward_model, cls_vout_model, output_file
 
 
@@ -247,7 +248,7 @@ def generate_gnn_rewards(key_order, dataset, sweep, args,
             else:
                 gnn_reward = 0
             key = key_para.split('$')[0]
-            if (key not in gnn_rewards_dict) or (gnn_reward >= gnn_rewards_dict[key]):
+            if (key not in gnn_rewards_dict) or (gnn_reward > gnn_rewards_dict[key]):
                 gnn_rewards_dict[key] = gnn_reward
             clear_files(save_data_folder=args.single_data_folder, raw_data_folder=args.single_data_path,
                         ncomp=args.num_component)

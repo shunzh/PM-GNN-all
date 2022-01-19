@@ -1,7 +1,7 @@
 import json
 import pprint
 
-from util.plot import plot_bar
+from TransformerModel.util import plot_bar
 
 # use the criteria defined in freqAnalysis
 from freqAnalysis import find_most_freq_paths

@@ -1,7 +1,7 @@
 import json
 import collections
 
-from config import EXP_DIR, RANDOM_DATA
+from TransformerModel.config import EXP_DIR, RANDOM_DATA
 from utils.graphUtils import nodes_and_edges_to_adjacency_matrix
 
 DATA_JSON = EXP_DIR + RANDOM_DATA + 'data.json'

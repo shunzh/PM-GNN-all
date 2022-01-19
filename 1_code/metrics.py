@@ -264,13 +264,15 @@ def save_verification_results(result_folder, model_name, pred_rewards, ground_tr
     raw_data_file_name = model_name + '-' + str(dataset_size) + '-' + ground_truth_name + '_as_gt'
     save_raw_data_to_files(file_name=result_folder + raw_data_file_name, raw_data=raw_data)
     class_data_file_name = raw_data_file_name + '-class-' + str(class_number)
+    class_data_and_save_to_files(class_data_file_name=result_folder + 'sim-class-'+ str(class_number),
+                                 raw_data=ground_truth, class_number=class_number)
     class_data_and_save_to_files(class_data_file_name=result_folder + class_data_file_name,
                                  raw_data=pred_rewards, class_number=class_number)
 
     result = compute_statistic(preds=pred_rewards, ground_truth=ground_truth, good_topo_threshold=0.6)
     file_name = model_name + '_' + str(dataset_size) + '_statistic'
     save_statistic_result_to_files(statisitc_file_name=result_folder + file_name, statisitc_result=result)
-    write_results_to_csv_file(file_name + '.csv', result)
+    write_results_to_csv_file(result_folder + file_name + '.csv', result)
 
 
 '''

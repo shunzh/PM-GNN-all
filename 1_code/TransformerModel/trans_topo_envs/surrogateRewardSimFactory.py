@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABC
 
-from UCFTopo_dev.ucts.TopoPlanner import TopoGenSimulator
+from TransformerModel.UCFTopo_dev.ucts.TopoPlanner import TopoGenSimulator
 
 
 class SurrogateRewardSimFactory(ABC):

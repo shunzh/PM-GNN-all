@@ -5,10 +5,10 @@ import gpytorch
 import torch
 import numpy as np
 
-from trans_topo_envs.surrogateRewardSimFactory import SurrogateRewardSimFactory
-from transformer_SVGP.train import main as train_transformer
-from transformer_SVGP.Models import get_model, GPModel
-from trans_topo_envs.surrogateRewardSim import SurrogateRewardTopologySim
+from TransformerModel.trans_topo_envs.surrogateRewardSimFactory import SurrogateRewardSimFactory
+from TransformerModel.transformer_SVGP.train import main as train_transformer
+from TransformerModel.transformer_SVGP.Models import get_model, GPModel
+from TransformerModel.trans_topo_envs.surrogateRewardSim import SurrogateRewardTopologySim
 
 from build_vocab import Vocabulary
 

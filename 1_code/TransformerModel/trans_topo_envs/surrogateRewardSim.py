@@ -1,12 +1,10 @@
 from abc import abstractmethod, ABC
 from copy import deepcopy
 
-import config
+from TransformerModel.UCFTopo_dev.ucts.TopoPlanner import TopoGenSimulator, calculate_reward, sort_dict_string
 
-from UCFTopo_dev.ucts.TopoPlanner import TopoGenSimulator, calculate_reward, sort_dict_string
-
-from trans_topo_data.analysis.topoGraph import TopoGraph
-from trans_topo_data.analysis.graphUtils import nodes_and_edges_to_adjacency_matrix
+from TransformerModel.trans_topo_data.analysis.topoGraph import TopoGraph
+from TransformerModel.trans_topo_data.analysis.graphUtils import nodes_and_edges_to_adjacency_matrix
 
 
 class SurrogateRewardTopologySim(TopoGenSimulator, ABC):

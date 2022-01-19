@@ -1,13 +1,13 @@
 import torch
 
 from algs.gp import GPModel
-from trans_topo_envs.surrogateRewardSim import SurrogateRewardTopologySim
+from TransformerModel.trans_topo_envs.surrogateRewardSim import SurrogateRewardTopologySim
 
 from topo_data.analysis.embedding import tf_embed
 
 import numpy as np
 
-from trans_topo_envs.surrogateRewardSimFactory import SurrogateRewardSimFactory
+from TransformerModel.trans_topo_envs.surrogateRewardSimFactory import SurrogateRewardSimFactory
 
 
 class GPRewardTopologySimFactory(SurrogateRewardSimFactory):
