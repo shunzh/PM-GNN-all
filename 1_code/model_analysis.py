@@ -1,3 +1,5 @@
+import sys
+
 from TransformerModel.get_transformer_reward import *
 from AnalyticModel.get_analytic_reward import *
 from TransformerModel.get_transformer_reward import *
@@ -8,6 +10,9 @@ from data_preprocessing import *
 from metrics import *
 from utils import *
 
+sys.path.append(os.path.join(sys.path[0], 'TransformerModel/UCFTopo_dev'))
+sys.path.append(os.path.join(sys.path[0], 'TransformerModel/transformer_SVGP'))
+sys.path.append(os.path.join(sys.path[0], 'TransformerModel/trans_topo_data'))
 
 def analyze_model(pred_rewards, gt_rewards, klist, output_folder, output_file='result.csv'):
     k_results, n_results = {}, {}
@@ -50,15 +55,16 @@ if __name__ == '__main__':
     # ======================== Arguments ==========================#
 
     args = get_args()
-    dataset = json.load(open('./datasets/dataset_5.json'))
-    generate_statistic_rewards(sweep=False, dataset=dataset, key_order=[],
-                                       target_vout=50)
-    exit(1)
+    # dataset = json.load(open('./datasets/dataset_3.json'))
+    # generate_statistic_rewards(sweep=False, dataset=dataset, key_order=[],
+    #                                    target_vout=50)
+    # print(len(dataset))
+    # exit(1)
     random.seed(1)
     # for i in range(10):
     #     print(random.random())
     # dataset = json.load(open('./datasets/dataset_3.json'))
-    dataset = json.load(open('./datasets/dataset_4.json'))
+    dataset = json.load(open('./datasets/dataset_5.json'))
     split_data_set = {}
 
     idx = 0
@@ -84,30 +90,30 @@ if __name__ == '__main__':
 
 
     # # transformer
-    # transformer_rewards = generate_transformer_rewards(sweep=args.sweep, num_component=5,
-    #                                                    eff_model_seed=args.transformer_eff_model_seed,
-    #                                                    vout_model_seed=args.transformer_vout_model_seed,
-    #                                                    dataset=split_data_set, key_order=shuffled_keys, target_vout=50)
-    #
-    # k_transformer_results, n_transformer_results, transformer_rewards, sim_rewards = \
-    #     analyze_model(pred_rewards=transformer_rewards, gt_rewards=sim_rewards, klist=klist,
-    #                   output_folder=result_folder, output_file='transformer.csv')
-    #
-    # save_verification_results(result_folder=verification_folder, model_name='transformer',
-    #                           pred_rewards=transformer_rewards, ground_truth=sim_rewards, ground_truth_name='sim',
-    #                           dataset_size=len(split_data_set), class_number=class_number)
+    transformer_rewards = generate_transformer_rewards(sweep=args.sweep, num_component=5,
+                                                       eff_model_seed=args.transformer_eff_model_seed,
+                                                       vout_model_seed=args.transformer_vout_model_seed,
+                                                       dataset=split_data_set, key_order=shuffled_keys, target_vout=50)
+
+    k_transformer_results, n_transformer_results, transformer_rewards, sim_rewards = \
+        analyze_model(pred_rewards=transformer_rewards, gt_rewards=sim_rewards, klist=klist,
+                      output_folder=result_folder, output_file='transformer.csv')
+
+    save_verification_results(result_folder=verification_folder, model_name='transformer',
+                              pred_rewards=transformer_rewards, ground_truth=sim_rewards, ground_truth_name='sim',
+                              dataset_size=len(split_data_set), class_number=class_number)
 
     # anal
-    analytic_rewards = generate_analytic_rewards(sweep=args.sweep, dataset=split_data_set,
-                                                 key_order=shuffled_keys, target_vout=50)
-
-    k_anal_results, n_anal_results, analytic_rewards, sim_rewards = \
-        analyze_model(pred_rewards=analytic_rewards, gt_rewards=sim_rewards, klist=klist,
-                      output_folder=result_folder, output_file='analytic.csv')
-
-    save_verification_results(result_folder=verification_folder, model_name='anal',
-                              pred_rewards=analytic_rewards, ground_truth=sim_rewards, ground_truth_name='sim',
-                              dataset_size=len(split_data_set), class_number=class_number)
+    # analytic_rewards = generate_analytic_rewards(sweep=args.sweep, dataset=split_data_set,
+    #                                              key_order=shuffled_keys, target_vout=50)
+    #
+    # k_anal_results, n_anal_results, analytic_rewards, sim_rewards = \
+    #     analyze_model(pred_rewards=analytic_rewards, gt_rewards=sim_rewards, klist=klist,
+    #                   output_folder=result_folder, output_file='analytic.csv')
+    #
+    # save_verification_results(result_folder=verification_folder, model_name='anal',
+    #                           pred_rewards=analytic_rewards, ground_truth=sim_rewards, ground_truth_name='sim',
+    #                           dataset_size=len(split_data_set), class_number=class_number)
 
     # # gnn
     # model_list = ['only_max_reg_reward-5-0.pt', 'only_max_reg_reward-8-4.pt']
