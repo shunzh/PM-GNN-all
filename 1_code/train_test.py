@@ -15,9 +15,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-path', type=str, default="../0_rawdata", help='raw data path')
-    parser.add_argument('-y_select', type=str, default='reg_vout', help='define target label')
+    parser.add_argument('-y_select', type=str, default='reg_eff', help='define target label')
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
-    parser.add_argument('-n_epoch', type=int, default=100, help='number of training epoch')
+    parser.add_argument('-n_epoch', type=int, default=500, help='number of training epoch')
     parser.add_argument('-gnn_nodes', type=int, default=20, help='number of nodes in hidden layer in GNN')
     parser.add_argument('-predictor_nodes', type=int, default=10, help='number of MLP predictor nodes at output of GNN')
     parser.add_argument('-gnn_layers', type=int, default=2, help='number of layer')
@@ -68,7 +68,6 @@ if __name__ == '__main__':
         train_loader, val_loader, test_loader = split_imbalance_data_cls(dataset, batch_size, train_rate, 0.1, 0.1)
     elif y_select == 'reg_reward':
         train_loader, val_loader, test_loader = split_imbalance_data_reward(dataset, batch_size, train_rate, 0.1, 0.1)
-
     else:
         train_loader, val_loader, test_loader = split_balance_data(dataset, batch_size, train_rate, 0.1, 0.1)
 
@@ -81,7 +80,7 @@ if __name__ == '__main__':
 
         nf_size = 4
         ef_size = 3
-        nnode = 7
+        nnode = 8
         # if args.model_index==0:
         #     ef_size=6
 
@@ -127,6 +126,9 @@ if __name__ == '__main__':
                                                gnn_layers=gnn_layers)
 
             # save model and test data
+            if not os.path.exists('pt'):
+                os.makedirs('pt')
+
             torch.save((model.state_dict(), test_loader),
                        './pt/' + y_select + '-' + str(seed) + '-' + str(ncomp) + '.pt')
 
@@ -136,6 +138,9 @@ if __name__ == '__main__':
 
         final_result.append([model_index, ncomp, y_select, gnn_layers, gnn_nodes,
                              min_loss, mean_loss, final_rse, rse_bins[0], rse_bins[1], rse_bins[2]])
+
+    if not os.path.exists('log'):
+        os.makedirs('log')
 
     with open('./log/result-' + output_file + '.csv', 'w') as f:
         csv_writer = csv.writer(f)

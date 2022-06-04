@@ -12,6 +12,8 @@ from models import  PT_GNN, Serial_GNN, LOOP_GNN
 from old_models import PT_GNN as Old_PT_GNN
 import copy
 
+from plot_distribution import plot_distribution
+
 
 def rse(y,yt):
 
@@ -163,7 +165,7 @@ def train(train_loader, val_loader, model, n_epoch, batch_size, num_node, device
                     epoch_min=epoch
                     min_val_loss=val_loss_ave
 
-                 if epoch-epoch_min>5:
+                 if epoch-epoch_min>30:
                     #print("training loss:",train_perform)
                     print("training loss minimum value:", min(train_perform))
                     print("training loss average value:", np.mean(train_perform))
@@ -247,6 +249,9 @@ def test(test_loader, model, num_node, model_index, device,gnn_layers):
 #        print("Error    :",len([i for i in abs(out-gold) if i > 0.5])/len(out))
 #        print(gold_list)
         result_bins = compute_errors_by_bins(np.reshape(out_list,-1),np.reshape(gold_list,-1),[(-0.1,0.2),(0.2,0.4),(0.4,0.6),(0.6,0.8),(0.8,1.1)])
+
+        # a bit hacky way to plot ground truth vs surrogate distirbution, using code for plotting Transformer
+        plot_distribution(np.reshape(gold_list,-1), np.reshape(out_list,-1), target='', plot_file='distribution')
 
         final_rse, final_mse = rse(np.reshape(out_list,-1),np.reshape(gold_list,-1))
         print("Final RSE:", final_rse)

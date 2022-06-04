@@ -40,10 +40,14 @@ class Autopo(InMemoryDataset):
         y_select = self.y_select
         ncomp = self.ncomp
 
-        if ncomp == 3 or ncomp == 5:
-            json_file = json.load(open(self.data_path_root + "/dataset" + "_" + str(ncomp) + ".json"))
-        else:
-            json_file = json.load(open(self.data_path_root + "/dataset_5-simu.json"))
+        # if ncomp == 3 or ncomp == 5:
+        #     json_file = json.load(open(self.data_path_root + "/dataset" + "_" + str(ncomp) + ".json"))
+        # else:
+        #     json_file = json.load(open(self.data_path_root + "/dataset_5-simu.json"))
+
+        # hardcoded for now
+        json_file = json.load(open('dataset_5_05_strict_valid_set.json'))
+        #json_file = json.load(open('dataset_5_05_cleaned_label_small.json'))
 
         tmp = {}
 
