@@ -23,8 +23,10 @@ if __name__ == '__main__':
     parser.add_argument('-gnn_layers', type=int, default=2, help='number of layer')
     parser.add_argument('-model_index', type=int, default=2, help='model index')
     parser.add_argument('-threshold', type=float, default=0, help='classification threshold')
-    parser.add_argument('-ncomp', type=int, default=3, help='# components')
+    parser.add_argument('-ncomp', type=int, default=5, help='# components')
     parser.add_argument('-train_rate', type=float, default=0.7, help='# components')
+
+    parser.add_argument('-data', type=str, required=True)
 
     parser.add_argument('-retrain', type=int, default=1, help='force retrain model')
     #    parser.add_argument('-seed', type=int, default=0, help='random seed')
@@ -44,7 +46,7 @@ if __name__ == '__main__':
     y_select = args.y_select
     gnn_layers = args.gnn_layers
     gnn_nodes = args.gnn_nodes
-    data_folder = '../2_dataset/' + y_select + '_' + str(ncomp)
+    data_folder = '../' + args.data.split('.')[0] +'/' + y_select + '_' + str(ncomp)
     batch_size = args.batch_size
     n_epoch = args.n_epoch
     th = args.threshold
@@ -55,12 +57,11 @@ if __name__ == '__main__':
     weight_decay = args.weight_decay
     seedrange = args.seedrange
 
-    output_file = datetime.now().strftime(y_select + '-' + str(ncomp))
     final_result = []
 
     # ======================== Data & Model ==========================#
 
-    dataset = Autopo(data_folder, path, y_select, ncomp)
+    dataset = Autopo(data_folder, path, args.data, y_select, ncomp)
 
     print('\n # data point:\n', len(dataset))
 
@@ -136,16 +137,16 @@ if __name__ == '__main__':
                                    device=device, gnn_layers=args.gnn_layers)
         print("mse_bins", rse_bins)
 
-        final_result.append([model_index, ncomp, y_select, gnn_layers, gnn_nodes,
-                             min_loss, mean_loss, final_rse, rse_bins[0], rse_bins[1], rse_bins[2]])
+        final_result.append([model_index, ncomp, y_select, gnn_layers, gnn_nodes, final_rse])
 
-    if not os.path.exists('log'):
-        os.makedirs('log')
+    csv_file = '../' + args.data.split('.')[0] + '/' + 'result.csv'
+    header = ['model_index', 'n_comp', 'y_select', 'gnn_layers', 'gnn_nodes', 'final_rse']
 
-    with open('./log/result-' + output_file + '.csv', 'w') as f:
+    file_exists = os.path.exists(csv_file)
+
+    with open(csv_file, 'a') as f:
         csv_writer = csv.writer(f)
-        header = ['model_index', 'n_comp', 'y_select', 'gnn_layers', 'gnn_nodes',
-                  'min_loss', 'mean_loss', 'final_rse', 'mse[0-0.3]', 'mse[0.3-0.7]', 'mse[0.7-1]']
-        csv_writer.writerow(header)
+
+        if not file_exists: csv_writer.writerow(header)
 
         csv_writer.writerows(final_result)

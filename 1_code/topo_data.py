@@ -17,8 +17,8 @@ import torch_geometric
 
 class Autopo(InMemoryDataset):
 
-    def __init__(self, root, path, y_select, ncomp, transform=None, pre_transform=None, data_path_root=None):
-        self.data_path_root = path
+    def __init__(self, root, path, raw_data, y_select, ncomp, transform=None, pre_transform=None, data_path_root=None):
+        self.raw_data = path + '/' + raw_data
         self.y_select = y_select
         self.ncomp = ncomp
         super(Autopo, self).__init__(root, transform, pre_transform)
@@ -46,8 +46,7 @@ class Autopo(InMemoryDataset):
         #     json_file = json.load(open(self.data_path_root + "/dataset_5-simu.json"))
 
         # hardcoded for now
-        json_file = json.load(open('dataset_5_05_strict_valid_set.json'))
-        #json_file = json.load(open('dataset_5_05_cleaned_label_small.json'))
+        json_file = json.load(open(self.raw_data, 'r'))
 
         tmp = {}
 
