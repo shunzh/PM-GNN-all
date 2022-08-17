@@ -23,8 +23,8 @@ def get_args():
     parser.add_argument('-model_index', type=int, default=3, help='model index')
     parser.add_argument('--nnode', type=int, default=8, help='number of node')
 
-    parser.add_argument('-split_start', type=int, default=10000, help='split_start')
-    parser.add_argument('-split_end', type=int, default=20000, help='split_end')
+    parser.add_argument('-split_start', type=int, default=0, help='split_start')
+    parser.add_argument('-split_end', type=int, default=100000, help='split_end')
 
     parser.add_argument('-eff_model', type=str, default='reg_eff_4Mod_2layers_20nodes_3comp.pt', help='eff model file name')
     parser.add_argument('-vout_model', type=str, default='reg_vout_4Mod_2layers_20nodes_3comp.pt', help='vout model file name')
@@ -35,6 +35,9 @@ def get_args():
 
     parser.add_argument('-y_select', type=str, default='reg_eff', help='define target label')
     parser.add_argument('-train_rate', type=float, default=1, help='# components')
+
+    # args for metrics
+    parser.add_argument('-dataset_index', type=int, default=10, help='the operation on which subset of data, only for hte metric')
 
 
     args = parser.parse_args()

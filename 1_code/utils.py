@@ -1,3 +1,9 @@
+from datetime import datetime
+
+import networkx as nx
+from matplotlib import pyplot as plt
+
+
 def calculate_reward(effi, target_vout, min_vout=None, max_vout=None):
     a = abs(target_vout) / 15
     if effi['efficiency'] > 1 or effi['efficiency'] < 0:
@@ -39,4 +45,28 @@ def topo_info_valid(topo_info):
         # print(topo_info)
         return False
     return True
+
+def visualize(list_of_node, list_of_edge, title=None, figure_folder=None, file_name='default'):
+    """
+    plot circuit topology
+    @param list_of_node:
+    @param list_of_edge:
+    @param title: title of the plot
+    @param figure_folder: where do you want to put the plot
+    @return:
+    """
+    T = nx.Graph()
+    T.add_nodes_from(list_of_node)
+    T.add_edges_from(list_of_edge)
+    if bool(title):
+        print('title', title)
+        plt.title(" ")
+    nx.draw(T, with_labels=True)
+
+    # plt.show()
+    dt = datetime.now().strftime(figure_folder + file_name)
+    # dt = datetime.datetime.now().strftime(figure_folder + title)
+    # print(dt+'-'+str(int(title)))
+    plt.savefig(dt + '-' + str(int(title)))
+    plt.close()
 

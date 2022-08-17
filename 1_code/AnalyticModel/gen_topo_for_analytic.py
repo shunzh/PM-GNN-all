@@ -711,7 +711,7 @@ def exp_subs(a_x, a_y, a_A, a_B, a_C, a_D, device, value):
     return a_xp, a_yp, a_Ap, a_Bp, a_Cp, a_Dp
 
 
-def convert_cki_full_path(path, pv, dn, nt):
+def convert_cki_full_path(path, pv, dn, nt, acc_time=10, settle_times=1):
     file = open(path, 'w')
 
     if 'Ra0' in dn:
@@ -741,13 +741,15 @@ def convert_cki_full_path(path, pv, dn, nt):
         "Cout OUT 0 {cout}"
         "\n"]
 
+    settle_para = 4000 * settle_times
+
     sufix = ["\n",
              ".save all",
              # ".save i(vind)",
              ".control",
              # "tran %su 4000u" %(1/pv[dn['Frequency']]/10),
              # "tran 1n 2000u",
-             "tran 10n 4000u",
+             "tran " + str(acc_time) + "n " + str(settle_para) + "u",
              "print V(OUT)",
              "print V(IN_exact,IN)",
              ".endc",
@@ -767,7 +769,7 @@ def convert_cki_full_path(path, pv, dn, nt):
         elif x[0][0] == 'C' or x[0][0] == 'L':
             line = x[0] + ' ' + x[1] + ' ' + x[2] + ' ' + str(pv[dn[x[0]]]) + 'u'
         elif x[0][0] == 'R':
-            line=x[0]+' '+x[1]+' '+x[2]+' '+str(pv[dn[x[0]]])
+            line = x[0] + ' ' + x[1] + ' ' + x[2] + ' ' + str(pv[dn[x[0]]])
         else:
             return 0
 
@@ -846,8 +848,8 @@ def convert_cki(fn, pv, dn, nt):
     return
 
 
-def simulate(path):
-    my_timeout = 60
+def simulate(path, my_timeout=60):
+    # my_timeout = 60
     simu_file = path[:-3] + 'simu'
     p = subprocess.Popen("exec " + 'ngspice -b ' + path + '>' + simu_file, stdout=subprocess.PIPE, shell=True)
     try:
@@ -974,14 +976,14 @@ def calculate_efficiency(path, input_voltage, freq, rin, rout):
 
     # print('P_out, P_in', P_out, P_in)
     # if P_in == 0:
-    if P_in < 0.001 and P_in > -0.001:
+    if 0.001 > P_in > -0.001:
         P_in = 0
         return {'result_valid': False,
                 'efficiency': -1,
                 'Vout': -500,
                 'Iin': -1,
                 'error_msg': 'power_in_is_zero'}
-    if P_out < 0.001 and P_out > -0.001:
+    if 0.001 > P_out > -0.001:
         P_out = 0
 
     stable_flag = (abs(V_out_ave_1 - V_out_ave_2) <= max(abs(V_out_ave * stable_ratio), V_in / 200))
@@ -989,8 +991,8 @@ def calculate_efficiency(path, input_voltage, freq, rin, rout):
     # stable_flag = 1;
 
     eff = P_out / (P_in + 0.01)
-    Vout = V_out_ave;
-    Iin = I_in_ave;
+    Vout = V_out_ave
+    Iin = I_in_ave
 
     result = {'result_valid': (0 <= eff <= 1) and stable_flag,
               'efficiency': eff,
@@ -1013,3 +1015,360 @@ def calculate_efficiency(path, input_voltage, freq, rin, rout):
         print('Promising candidates')
 
     return result
+
+
+def save_results_to_csv(out_file_name, result_rows):
+    with open(out_file_name, 'w') as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerows(result_rows)
+    f.close()
+
+
+def general_plot(output_type_count, xs, ys, xlabel, ylabel, title, ylim, plot_file):
+    plt.scatter(xs, ys, s=0.02)
+    plt.xlabel(f"{xlabel}")
+    plt.ylabel(f"{ylabel}")
+    plt.title(title)
+    plt.ylim(ylim[0], ylim[1])
+    plt.savefig(f"{plot_file}-{output_type_count}.png", dpi=1000, format="png")
+    plt.close()
+
+
+def plot_simu_vout_eff(path, V_in, rin, rout, plot_file, title, freq=1000000.0):
+    simu_file = path
+    file = open(simu_file, 'r')
+    # V_in = input_voltage
+    V_out = []
+    I_in = []
+    I_out = []
+    time = []
+
+    stable_ratio = 0.01
+
+    cycle = 1 / freq
+    # count = 0
+
+    read_V_out, read_I_out, read_I_in = False, False, False
+    for line in file:
+        if "Transient solution failed" in line:
+            return {'result_valid': False,
+                    'efficiency': -1,
+                    'Vout': -500,
+                    'Iin': -1,
+                    'error_msg': 'transient_simulation_failure'}
+        if "Index   time            v(out)" in line and not read_V_out:
+            read_V_out = True
+            read_I_in = False
+            continue
+        elif "Index   time            v(in_exact,in)" in line and not read_I_in:
+            read_V_out = False
+            read_I_in = True
+            continue
+
+        tokens = line.split()
+
+        # print(tokens)
+        if len(tokens) == 3 and tokens[0] != "Index":
+            if read_V_out:
+                time.append(float(tokens[1]))
+                try:
+                    V_out.append(float(tokens[2]))
+                    I_out.append(float(tokens[2]) / rout)
+                except:
+                    print('Vout token error')
+            elif read_I_in:
+                try:
+                    I_in.append(float(tokens[2]) / rin)
+                except:
+                    print('Iin token error')
+
+    print(len(V_out), len(I_in), len(I_out))
+
+    # print(len(V_out),len(I_out),len(I_in),len(time))
+    if len(V_out) == len(I_in) == len(I_out) == len(time):
+        pass
+    else:
+        return "don't match"
+    effs, Vouts, times = [], [], []
+    effs_10000, Vouts_10000, times_10000 = [], [], []
+    for j in range(1, len(V_out) - 1):
+        end = len(V_out) - j
+        start = len(V_out) - j
+        # print(cycle, start)
+        while start >= 0:
+            if time[end] - time[start] >= 50 * cycle:
+                break
+            start -= 1
+
+        if start == -1:
+            break
+        # print("times", start, end, time[end] - time[start])
+        P_in = sum([(I_in[x] + I_in[x + 1]) / 2 * (V_in + V_in) / 2 *
+                    (time[x + 1] - time[x])
+                    for x in range(start, end)]) / (time[end] - time[start])
+
+        P_out = sum([(I_out[x] + I_out[x + 1]) / 2 * (V_out[x] + V_out[x + 1]) / 2 *
+                     (time[x + 1] - time[x])
+                     for x in range(start, end)]) / (time[end] - time[start])
+
+        V_out_ave = sum([(V_out[x] + V_out[x + 1]) / 2 * (time[x + 1] - time[x])
+                         for x in range(start, end)]) / (time[end] - time[start])
+
+        if j % 10000 == 0:
+            print(j)
+            json.dump([times_10000, Vouts_10000, effs_10000],
+                      open(f"{plot_file}-vout-eff-" + str('{:04d}'.format(int(j / 10000))) + '.json', 'w'))
+            general_plot(output_type_count='vout-c-' + str('{:04d}'.format(int(j / 10000))), xs=times_10000,
+                         ys=Vouts_10000,
+                         title=str(Vouts_10000[-1]),
+                         xlabel='time', ylabel='vout', ylim=[-500, 500], plot_file=plot_file)
+            general_plot(output_type_count='eff-c-' + str('{:04d}'.format(int(j / 10000))), xs=times_10000,
+                         ys=effs_10000, title=title,
+                         xlabel='time', ylabel='eff', ylim=[0, 10], plot_file=plot_file)
+            effs_10000, Vouts_10000, times_10000 = [], [], []
+
+        # if 0.001 > P_in > -0.001:
+        #     return "too small p-in"
+        # if 0.001 > P_out > -0.001:
+        #     P_out = 0
+
+        effs.insert(0, P_out / (P_in + 0.01))
+        Vouts.insert(0, V_out_ave)
+        times.insert(0, time[start])
+
+        effs_10000.insert(0, P_out / (P_in + 0.01))
+        Vouts_10000.insert(0, V_out_ave)
+        times_10000.insert(0, time[start])
+
+    # for j in range(1, 10000):
+    #     end = j
+    #     start = j
+    #     # print(cycle, start)
+    #     while end <= len(V_out):
+    #         if time[end] - time[start] >= 50 * cycle:
+    #             break
+    #         end += 1
+    #
+    #     if end >= len(V_out):
+    #         return "end > len(V_out)"
+    #     # print("times", start, end, time[end] - time[start])
+    #     P_in = sum([(I_in[x] + I_in[x + 1]) / 2 * (V_in + V_in) / 2 *
+    #                 (time[x + 1] - time[x])
+    #                 for x in range(start, end)]) / (time[end] - time[start])
+    #
+    #     P_out = sum([(I_out[x] + I_out[x + 1]) / 2 * (V_out[x] + V_out[x + 1]) / 2 *
+    #                  (time[x + 1] - time[x])
+    #                  for x in range(start, end)]) / (time[end] - time[start])
+    #
+    #     V_out_ave = sum([(V_out[x] + V_out[x + 1]) / 2 * (time[x + 1] - time[x])
+    #                      for x in range(start, end)]) / (time[end] - time[start])
+    #
+    #     if j % 1000 == 0:
+    #         print(j)
+    #     if 0.001 > P_in > -0.001:
+    #         return "too small p-in"
+    #     if 0.001 > P_out > -0.001:
+    #         P_out = 0
+    #
+    #     effs.insert(j - 1, P_out / (P_in + 0.01))
+    #     Vouts.insert(j - 1, V_out_ave)
+    #     times.insert(j - 1, time[start])
+    json.dump([times, Vouts, effs], open(f"{plot_file}-vout-eff" + '.json', 'w'))
+    general_plot(output_type_count='vout', xs=times, ys=Vouts, title=str(Vouts[-1]),
+                 xlabel='time', ylabel='vout', ylim=[-500, 500], plot_file=plot_file)
+    general_plot(output_type_count='eff', xs=times, ys=effs, title=title,
+                 xlabel='time', ylabel='eff', ylim=[0, 2], plot_file=plot_file)
+
+    # plt.scatter(times, Vouts, s=0.02)
+    # plt.xlabel(f"Time")
+    # plt.ylabel(f"vout")
+    # plt.ylim(-500, 500)
+    # # plt.title(f'rmse is {str(rmse)}')
+    # # plt.set_size_inches(18.5, 10.5)
+    # plt.rcParams["figure.figsize"] = (10, 6)
+    # plt.savefig(f"{plot_file}-vout.png", dpi=1000, format="png")
+    # plt.close()
+    #
+    # plt.scatter(times, effs, s=0.02)
+    # plt.xlabel(f"Time")
+    # plt.ylabel(f"eff")
+    # plt.ylim(0, max(effs) + 0.05)
+    # plt.title(title)
+    # plt.savefig(f"{plot_file}-eff.png", dpi=300, format="png")
+    # plt.close()
+
+
+def get_times(path, V_in, rin, rout, plot_file, title, freq=1000000.0):
+    simu_file = path
+    file = open(simu_file, 'r')
+    # V_in = input_voltage
+    V_out = []
+    I_in = []
+    I_out = []
+    time = []
+
+    stable_ratio = 0.01
+
+    cycle = 1 / freq
+    # count = 0
+
+    read_V_out, read_I_out, read_I_in = False, False, False
+    for line in file:
+        if "Transient solution failed" in line:
+            return {'result_valid': False,
+                    'efficiency': -1,
+                    'Vout': -500,
+                    'Iin': -1,
+                    'error_msg': 'transient_simulation_failure'}
+        if "Index   time            v(out)" in line and not read_V_out:
+            read_V_out = True
+            read_I_in = False
+            continue
+        elif "Index   time            v(in_exact,in)" in line and not read_I_in:
+            read_V_out = False
+            read_I_in = True
+            continue
+
+        tokens = line.split()
+
+        # print(tokens)
+        if len(tokens) == 3 and tokens[0] != "Index":
+            if read_V_out:
+                time.append(float(tokens[1]))
+                try:
+                    V_out.append(float(tokens[2]))
+                    I_out.append(float(tokens[2]) / rout)
+                except:
+                    print('Vout token error')
+            elif read_I_in:
+                try:
+                    I_in.append(float(tokens[2]) / rin)
+                except:
+                    print('Iin token error')
+
+    print(len(V_out), len(I_in), len(I_out))
+
+    # print(len(V_out),len(I_out),len(I_in),len(time))
+    if len(V_out) == len(I_in) == len(I_out) == len(time):
+        pass
+    else:
+        return "don't match"
+    effs, Vouts, times = [], [], []
+    effs_10000, Vouts_10000, times_10000 = [], [], []
+    split_times = []
+    for j in range(1, len(V_out) - 1):
+        end = len(V_out) - j
+        start = len(V_out) - j
+        # print(cycle, start)
+        while start >= 0:
+            if time[end] - time[start] >= 50 * cycle:
+                break
+            start -= 1
+
+        if start == -1:
+            break
+        # print("times", start, end, time[end] - time[start])
+        P_in = 0
+        P_out = 0
+        V_out_ave = 0
+
+        if j % 10000 == 0:
+            print(j)
+            split_times.append(times_10000)
+            times_10000 = []
+
+        times.insert(0, time[start])
+        times_10000.insert(0, time[start])
+    return split_times, times
+
+
+def save_times_to_json(times, effs, Vouts, name_file):
+    json.dump([times, Vouts, effs], open(name_file + '.json', 'w'))
+
+
+def json_to_csv(times, Vouts, effs, plot_data_file):
+    assert len(times) == len(effs) == len(Vouts)
+    list_results = [['times', 'vout', 'effs']]
+    for i in range(len(times)):
+        list_results.append([times[i], Vouts[i], effs[i]])
+    save_results_to_csv(out_file_name=plot_data_file, result_rows=list_results)
+
+
+def plot_with_vouts_effs(times, Vouts, Vout_range, effs, eff_range, plot_file):
+    general_plot(output_type_count='vout', xs=times, ys=Vouts, title=str(Vouts[-1]),
+                 xlabel='time', ylabel='vout', ylim=Vout_range,
+                 plot_file=plot_file+'-range-'+str(Vout_range[0])+'-to-'+str(Vout_range[1])+'-')
+    general_plot(output_type_count='eff', xs=times, ys=effs, title=str(effs[-1]),
+                 xlabel='time', ylabel='eff', ylim=eff_range,
+                 plot_file=plot_file+'-range-'+str(eff_range[0])+'-to-'+str(eff_range[1])+'-')
+    return
+
+
+def plot_simu_vout(path, Vin, rin, rout, plot_file, title):
+    simu_file = path
+    file = open(simu_file, 'r')
+    V_out = []
+    I_in = []
+    I_out = []
+    eff = []
+    time = []
+
+    stable_ratio = 0.01
+
+    # count = 0
+
+    read_V_out, read_I_out, read_I_in = False, False, False
+    for line in file:
+        # print(line)
+        if "Transient solution failed" in line:
+            return {'result_valid': False,
+                    'efficiency': -1,
+                    'Vout': -500,
+                    'Iin': -1,
+                    'error_msg': 'transient_simulation_failure'}
+        if "Index   time            v(out)" in line and not read_V_out:
+            read_V_out = True
+            read_I_in = False
+            continue
+        elif "Index   time            v(in_exact,in)" in line and not read_I_in:
+            read_V_out = False
+            read_I_in = True
+            continue
+
+        tokens = line.split()
+
+        # print(tokens)
+        if len(tokens) == 3 and tokens[0] != "Index":
+            if read_V_out:
+                time.append(float(tokens[1]))
+                try:
+                    V_out.append(float(tokens[2]))
+                    I_out.append(float(tokens[2]) / rout)
+                except:
+                    print('Vout token error')
+            elif read_I_in:
+                try:
+                    I_in.append(float(tokens[2]) / rin)
+                except:
+                    print('Iin token error')
+
+    print(len(V_out), len(I_in), len(I_out))
+    for i in range(min([len(V_out), len(I_in), len(I_out)])):
+        eff.append(I_out[i] * V_out[i] / (I_in[i] * Vin))
+    plt.scatter(time, V_out, s=0.02)
+    plt.xlabel(f"Time")
+    plt.ylabel(f"vout")
+    plt.ylim(-500, 500)
+    # plt.title(f'rmse is {str(rmse)}')
+    # plt.set_size_inches(18.5, 10.5)
+    plt.rcParams["figure.figsize"] = (10, 6)
+    plt.savefig(f"{plot_file}-vout.png", dpi=1000, format="png")
+    plt.close()
+
+    plt.scatter(time, eff, s=0.02)
+    plt.xlabel(f"Time")
+    plt.ylabel(f"eff")
+    plt.ylim(0, max(I_out) + 0.05)
+    plt.title(title)
+    plt.savefig(f"{plot_file}-eff.png", dpi=300, format="png")
+    plt.close()

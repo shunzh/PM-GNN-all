@@ -144,6 +144,23 @@ def generate_sim_rewards(sweep, dataset, key_order, target_vout):
     sim_rewards = reordered_rewards(key_order=key_order, rewards_dict=sim_rewards_dict)
     return sim_rewards
 
+def generate_good_dataset(dataset, target_vout, good_threshold):
+    """
+
+    @param dataset:
+    @param target_vout:
+    @return:
+    """
+    good_dataset = {}
+
+    for key_para, topo_info in dataset.items():
+        sim_reward = calculate_reward(effi={'efficiency': topo_info['eff'],
+                                            'output_voltage': topo_info['vout']}, target_vout=target_vout)
+
+        if sim_reward >= good_threshold:
+            good_dataset[key_para] = topo_info
+    return good_dataset
+
 
 def generate_statistic_rewards(sweep, dataset, key_order, target_vout):
     """

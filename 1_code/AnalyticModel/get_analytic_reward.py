@@ -194,6 +194,113 @@ def get_one_expression(circuit_info):
     return expression
 
 
+# def get_analytics_result(parameters, expression):
+#     """
+#
+#     @param parameters:
+#     @param expression:
+#     @return: [fn, duty_cycle, str(vect), vout, effi, flag_candidate, name_list, net_list]
+#     """
+#     assert expression
+#     fn = 'one_circuit'
+#     net_list = expression['net_list']
+#
+#     a_x = expression['A state']['x']
+#     a_y = expression['A state']['y']
+#     a_A = expression['A state']['a']
+#     a_B = expression['A state']['b']
+#     a_C = expression['A state']['c']
+#     a_D = expression['A state']['d']
+#
+#     b_x = expression['B state']['x']
+#     b_y = expression['B state']['y']
+#     b_A = expression['B state']['a']
+#     b_B = expression['B state']['b']
+#     b_C = expression['B state']['c']
+#     b_D = expression['B state']['d']
+#
+#     device_list = expression['device_list']
+#
+#     param2sweep, paramname = gen_param(device_list, parameters)
+#
+#     paramall = list(it.product(*(param2sweep[Name] for Name in paramname)))
+#
+#     name_list = {}
+#     for index, name in enumerate(paramname):
+#         name_list[name] = index
+#     vect = paramall[0]
+#     # for vect in paramall:
+#     # print(fn, vect)
+#     duty_cycle = vect[name_list['Duty_Cycle']]
+#     vin = vect[name_list['Vin']]
+#     rin = vect[name_list['Rin']]
+#     rout = vect[name_list['Rout']]
+#     freq = vect[name_list['Frequency']]
+#     cout = vect[name_list['Cout']]
+#
+#     a_xp, a_yp, a_Ap, a_Bp, a_Cp, a_Dp = a_x, a_y, a_A, a_B, a_C, a_D
+#     b_xp, b_yp, b_Ap, b_Bp, b_Cp, b_Dp = b_x, b_y, b_A, b_B, b_C, b_D
+#
+#     nodelist = a_y[2:-2].split('], [')
+#     statelist = a_x[2:-2].split('], [')
+#
+#     k = 0
+#     for node in nodelist:
+#
+#         if str(node) == 'v_IN(t)':
+#             Ind_Vin = k
+#             flag_IN = 1
+#         if str(node) == 'v_IN_exact(t)':
+#             Ind_Vinext = k
+#             flag_IN_ext = 1
+#         if str(node) == 'v_OUT(t)':
+#             Ind_Vout = k
+#             flag_OUT = 1
+#         k = k + 1
+#
+#     for index, value in enumerate(vect):
+#         a_xp, a_yp, a_Ap, a_Bp, a_Cp, a_Dp = exp_subs(a_xp, a_yp, a_Ap, a_Bp, a_Cp, a_Dp, paramname[index],
+#                                                       str(value))
+#         b_xp, b_yp, b_Ap, b_Bp, b_Cp, b_Dp = exp_subs(b_xp, b_yp, b_Ap, b_Bp, b_Cp, b_Dp, paramname[index],
+#                                                       str(value))
+#
+#     A = duty_cycle * np.array(eval(a_Ap)) + (1 - duty_cycle) * np.array(eval(b_Ap))
+#     B = duty_cycle * np.array(eval(a_Bp)) + (1 - duty_cycle) * np.array(eval(b_Bp))
+#     C = duty_cycle * np.array(eval(a_Cp)) + (1 - duty_cycle) * np.array(eval(b_Cp))
+#     D = duty_cycle * np.array(eval(a_Dp)) + (1 - duty_cycle) * np.array(eval(b_Dp))
+#     try:
+#         A_inv = np.linalg.inv(A)
+#     except:
+#         return None
+#
+#     x_static = -np.matmul(A_inv, B) * vin
+#     y_static = (-np.matmul(np.matmul(C, A_inv), B) + D) * vin
+#
+#     Vout = y_static[Ind_Vout]
+#     Iin = abs((y_static[Ind_Vin] - y_static[Ind_Vinext]) / rin)
+#     Pin = Iin * vin
+#     Pout = Vout * Vout / rout
+#     eff = Pout / (Pin + 0.01)
+#
+#     vout = int(Vout[0])
+#     effi = float(int(eff[0] * 100)) / 100
+#     flag_candidate = (vout > -500) and (vout < 500) and (vout < vin * 0.6 or vout > vin * 1.2) and 60 < effi < 100
+#
+#     effi_vout_info = [fn, duty_cycle, str(vect), vout, effi, flag_candidate, name_list, net_list]
+#
+#     return effi_vout_info
+
+def get_cki_values(device_list, parameters):
+    param2sweep, paramname = gen_param(device_list, parameters)
+
+    paramall = list(it.product(*(param2sweep[Name] for Name in paramname)))
+
+    name_list = {}
+    for index, name in enumerate(paramname):
+        name_list[name] = index
+    vect = paramall[0]
+    return vect, name_list
+
 def get_analytics_result(parameters, expression):
     """
 
@@ -202,7 +309,12 @@ def get_analytics_result(parameters, expression):
     @return: [fn, duty_cycle, str(vect), vout, effi, flag_candidate, name_list, net_list]
     """
     assert expression
+
+    result = {}
+    result_csv = []
+
     fn = 'one_circuit'
+    result[fn] = {}
     net_list = expression['net_list']
 
     a_x = expression['A state']['x']
@@ -282,18 +394,24 @@ def get_analytics_result(parameters, expression):
     Pout = Vout * Vout / rout
     eff = Pout / (Pin + 0.01)
 
-    vout = int(Vout[0])
-    effi = float(int(eff[0] * 100)) / 100
-    flag_candidate = (vout > -500) and (vout < 500) and (vout < vin * 0.6 or vout > vin * 1.2) and 60 < effi < 100
+    VO = int(Vout[0])
+    E = float(int(eff[0] * 100)) / 100
+    flag_candidate = (VO > -500) and (VO < 500) and (VO < vin * 0.6 or VO > vin * 1.2) and 60 < E < 100
 
-    effi_vout_info = [fn, duty_cycle, str(vect), vout, effi, flag_candidate, name_list, net_list]
+    # effi_vout_info = [fn, duty_cycle, str(vect), vout, effi, flag_candidate, name_list, net_list]
 
-    return effi_vout_info
+    tmp = [fn, duty_cycle, str(vect), VO, E, flag_candidate]
+
+    result_csv.append(tmp)
+    result[fn][str(vect)] = [name_list, net_list, VO, E, flag_candidate, 1]
+
+    return result
 
 
 def get_prediction_from_topo_info(list_of_node, list_of_edge, net_list, param, target_vout=50, expression=None):
     """
-    get the prediction of a topology with list information and parameter
+    get the prediction of a topology with list information and parameter, eff 0 for invalid expression,
+    eff -1 for invalid analytic result getting
     @param expression: if we have the expression, we can directly use it
     @param param: the [duty cycle, C, L] format, need to be add into a full format
     @param target_vout: target output voltage
@@ -305,7 +423,6 @@ def get_prediction_from_topo_info(list_of_node, list_of_edge, net_list, param, t
     parameters = json.load(open("./param.json"))
     fix_paras = {'Duty_Cycle': [param[0]], 'C': [param[1]], 'L': [param[2]]}
     parameters = assign_DC_C_and_L_in_param(param=parameters, fix_paras=fix_paras)
-    effi, vout, reward = -1, -500, 0
 
     if not expression:
         # generate the expression using topo information
@@ -322,6 +439,8 @@ def get_prediction_from_topo_info(list_of_node, list_of_edge, net_list, param, t
         effi, vout = effi_vout_info[4], effi_vout_info[3]
         reward = calculate_reward(effi={'efficiency': effi, 'output_voltage': vout},
                                   target_vout=target_vout)
+    else:
+        return -1, -500, 0, expression
     return effi, vout, reward, expression
 
 
@@ -343,15 +462,17 @@ def generate_anal_not_sweep_prediction(dataset, target_vout, outer_expression_di
         effi, vout, analytic_reward, expression = \
             get_prediction_from_topo_info(list_of_node=topo_info['list_of_node'],
                                           list_of_edge=topo_info['list_of_edge'],
-                                          net_list=topo_info['net_list'], param=[topo_info['duty_cycle'], 10, 100],
+                                          net_list=topo_info['netlist'], param=[topo_info['duty_cycle'], 10, 100],
                                           target_vout=target_vout, expression=expression)
         if key + '$' + '[10, 100]' not in outer_expression_dict:
             outer_expression_dict[key + '$' + '[10, 100]'] = {'Expression': expression}
         if str(topo_info['duty_cycle']) not in outer_expression_dict:
             outer_expression_dict[key + '$' + '[10, 100]'][str(topo_info['duty_cycle'])] = {'Efficiency': effi,
                                                                                             'Vout': vout}
+        topo_info['eff_analytic'], topo_info['vout_analytic'] = effi, vout
+
         anal_sweep_rewards[key_para] = analytic_reward
-    return anal_sweep_rewards, outer_expression_dict
+    return anal_sweep_rewards, outer_expression_dict, dataset
 
 
 def generate_anal_sweep_prediction(dataset, target_vout, outer_expression_dict):
@@ -369,6 +490,7 @@ def generate_anal_sweep_prediction(dataset, target_vout, outer_expression_dict):
         print(key, '\n', key_para.split('$')[1])
         expression = None
         # get expression from the outer hash table
+        # the 10 and 100 are the fix C and L parameter, for
         if key + '$' + '[10, 100]' in outer_expression_dict:
             expression = outer_expression_dict[key + '$' + '[10, 100]']['Expression']
         effi, vout, analytic_reward, expression = \
@@ -398,7 +520,7 @@ def generate_analytic_rewards(sweep, dataset, key_order, target_vout=50):
         anal_sweep_data, analytic_rewards_dict, outer_expression_dict = \
             generate_anal_sweep_prediction(dataset, target_vout, outer_expression_dict)
     else:
-        analytic_rewards_dict, outer_expression_dict = \
+        analytic_rewards_dict, outer_expression_dict, _ = \
             generate_anal_not_sweep_prediction(dataset, target_vout, outer_expression_dict)
     # rewrite expression dict to json
     if len(outer_expression_dict) > pre_expression_length:
@@ -407,4 +529,3 @@ def generate_analytic_rewards(sweep, dataset, key_order, target_vout=50):
             f.close()
     analytic_rewards = reordered_rewards(key_order=key_order, rewards_dict=analytic_rewards_dict)
     return analytic_rewards
-
