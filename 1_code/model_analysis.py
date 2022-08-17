@@ -99,16 +99,14 @@ if __name__ == '__main__':
 
     # exit()
     split_data_set = {}
-    # dataset = json.load(open('./datasets/diff-eff-4.json'))
-    dataset = json.load(open('./datasets/4-comp-diff/dataset4tobesimulated.json'))
+    dataset = json.load(open('./datasets/diff-eff-4.json'))
+    #dataset = json.load(open('./datasets/4-comp-diff/dataset4tobesimulated.json'))
     # dataset = json.load(open('./datasets/invalid-3/json0-500.json'))
     # dataset = json.load(open('./datasets/invalid-3/json00.json'))
     # dataset = json.load(open('./datasets/invalid-3/json-1-1.json'))
     # dataset = json.load(open('./datasets/invalid-3/json-1-500.json'))
 
-    # acc_time, settle_times_set = 1, [5]
-    acc_time, settle_times_set = 10, [1]
-    # acc_time, settle_times_set = 10, [1, 20]
+    acc_time, settle_times_set = 10, [5]
     head = []
     for i in settle_times_set:
         head.append('sim eff ' + str(i))
@@ -129,7 +127,7 @@ if __name__ == '__main__':
             performs = []
             file_sufix = ''
             for settle_times in settle_times_set:
-                list_of_node, list_of_edge, netlist, para, key_sim_effi_, target_vout=50
+                #list_of_node, list_of_edge, netlist, para, key_sim_effi_, target_vout=50
                 reward, eff, vout, time = get_single_sim_result_with_topo_info(
                     list_of_node=single_data[key]["list_of_node"],
                     list_of_edge=single_data[key]["list_of_edge"],

@@ -752,6 +752,7 @@ def convert_cki_full_path(path, pv, dn, nt, acc_time=10, settle_times=1):
              "tran " + str(acc_time) + "n " + str(settle_para) + "u",
              "print V(OUT)",
              "print V(IN_exact,IN)",
+             "print V(gate_a)",
              ".endc",
              ".end",
              ]
@@ -1024,12 +1025,15 @@ def save_results_to_csv(out_file_name, result_rows):
     f.close()
 
 
-def general_plot(output_type_count, xs, ys, xlabel, ylabel, title, ylim, plot_file):
+def general_plot(output_type_count, xs, ys, xlabel, ylabel, title, plot_file, ylim=None):
     plt.scatter(xs, ys, s=0.02)
     plt.xlabel(f"{xlabel}")
     plt.ylabel(f"{ylabel}")
     plt.title(title)
-    plt.ylim(ylim[0], ylim[1])
+    if ylim:
+        plt.ylim(ylim[0], ylim[1])
+    plt.show()
+
     plt.savefig(f"{plot_file}-{output_type_count}.png", dpi=1000, format="png")
     plt.close()
 
@@ -1041,6 +1045,7 @@ def plot_simu_vout_eff(path, V_in, rin, rout, plot_file, title, freq=1000000.0):
     V_out = []
     I_in = []
     I_out = []
+    gate_a = []
     time = []
 
     stable_ratio = 0.01
@@ -1048,7 +1053,7 @@ def plot_simu_vout_eff(path, V_in, rin, rout, plot_file, title, freq=1000000.0):
     cycle = 1 / freq
     # count = 0
 
-    read_V_out, read_I_out, read_I_in = False, False, False
+    read_V_out, read_I_out, read_I_in, read_gate_a = False, False, False, False
     for line in file:
         if "Transient solution failed" in line:
             return {'result_valid': False,
@@ -1056,14 +1061,15 @@ def plot_simu_vout_eff(path, V_in, rin, rout, plot_file, title, freq=1000000.0):
                     'Vout': -500,
                     'Iin': -1,
                     'error_msg': 'transient_simulation_failure'}
-        if "Index   time            v(out)" in line and not read_V_out:
+        if "Index   time            v(out)" in line:
+            read_I_out, read_I_in, read_gate_a = False, False, False
             read_V_out = True
-            read_I_in = False
-            continue
-        elif "Index   time            v(in_exact,in)" in line and not read_I_in:
-            read_V_out = False
+        elif "Index   time            v(in_exact,in)" in line:
+            read_V_out, read_I_out, read_gate_a = False, False, False
             read_I_in = True
-            continue
+        elif "Index   time            v(gate_a)" in line:
+            read_V_out, read_I_out, read_I_in = False, False, False
+            read_gate_a = True
 
         tokens = line.split()
 
@@ -1081,8 +1087,21 @@ def plot_simu_vout_eff(path, V_in, rin, rout, plot_file, title, freq=1000000.0):
                     I_in.append(float(tokens[2]) / rin)
                 except:
                     print('Iin token error')
+            elif read_gate_a:
+                try:
+                    gate_a.append(float(tokens[2]))
+                except:
+                    print('Iin token error')
+
 
     print(len(V_out), len(I_in), len(I_out))
+
+    general_plot(output_type_count='gate_a', xs=time, ys=gate_a, title='',
+                 xlabel='time', ylabel='gate_a', plot_file=plot_file)
+    general_plot(output_type_count='vout', xs=time, ys=V_out, title='',
+                 xlabel='time', ylabel='vout', ylim=[-500, 500], plot_file=plot_file)
+    general_plot(output_type_count='iin', xs=time, ys=I_in, title=title,
+                 xlabel='time', ylabel='iin', plot_file=plot_file)
 
     # print(len(V_out),len(I_out),len(I_in),len(time))
     if len(V_out) == len(I_in) == len(I_out) == len(time):
@@ -1116,15 +1135,16 @@ def plot_simu_vout_eff(path, V_in, rin, rout, plot_file, title, freq=1000000.0):
 
         if j % 10000 == 0:
             print(j)
-            json.dump([times_10000, Vouts_10000, effs_10000],
-                      open(f"{plot_file}-vout-eff-" + str('{:04d}'.format(int(j / 10000))) + '.json', 'w'))
-            general_plot(output_type_count='vout-c-' + str('{:04d}'.format(int(j / 10000))), xs=times_10000,
-                         ys=Vouts_10000,
-                         title=str(Vouts_10000[-1]),
-                         xlabel='time', ylabel='vout', ylim=[-500, 500], plot_file=plot_file)
-            general_plot(output_type_count='eff-c-' + str('{:04d}'.format(int(j / 10000))), xs=times_10000,
-                         ys=effs_10000, title=title,
-                         xlabel='time', ylabel='eff', ylim=[0, 10], plot_file=plot_file)
+            # json.dump([times_10000, Vouts_10000, effs_10000],
+            #           open(f"{plot_file}-vout-eff-" + str('{:04d}'.format(int(j / 10000))) + '.json', 'w'))
+            # general_plot(output_type_count='vout-c-' + str('{:04d}'.format(int(j / 10000))), xs=times_10000,
+            #              ys=Vouts_10000,
+            #              title=str(Vouts_10000[-1]),
+            #              xlabel='time', ylabel='vout', ylim=[-500, 500], plot_file=plot_file)
+            # general_plot(output_type_count='eff-c-' + str('{:04d}'.format(int(j / 10000))), xs=times_10000,
+            #              ys=effs_10000, title=title,
+            #              xlabel='time', ylabel='eff', ylim=[0, 10], plot_file=plot_file)
+
             effs_10000, Vouts_10000, times_10000 = [], [], []
 
         # if 0.001 > P_in > -0.001:
@@ -1173,11 +1193,13 @@ def plot_simu_vout_eff(path, V_in, rin, rout, plot_file, title, freq=1000000.0):
     #     effs.insert(j - 1, P_out / (P_in + 0.01))
     #     Vouts.insert(j - 1, V_out_ave)
     #     times.insert(j - 1, time[start])
-    json.dump([times, Vouts, effs], open(f"{plot_file}-vout-eff" + '.json', 'w'))
-    general_plot(output_type_count='vout', xs=times, ys=Vouts, title=str(Vouts[-1]),
+    # json.dump([times, Vouts, effs], open(f"{plot_file}-vout-eff" + '.json', 'w'))
+    general_plot(output_type_count='vout', xs=times, ys=V_out, title=str(Vouts[-1]),
                  xlabel='time', ylabel='vout', ylim=[-500, 500], plot_file=plot_file)
     general_plot(output_type_count='eff', xs=times, ys=effs, title=title,
                  xlabel='time', ylabel='eff', ylim=[0, 2], plot_file=plot_file)
+    general_plot(output_type_count='iin', xs=times, ys=I_in, title=title,
+                 xlabel='time', ylabel='iin', plot_file=plot_file)
 
     # plt.scatter(times, Vouts, s=0.02)
     # plt.xlabel(f"Time")
